@@ -1,0 +1,3041 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Office Photo Walkthrough Simulator</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            margin: 0;
+            overflow: hidden;
+            background-color: #0f172a;
+            user-select: none;
+        }
+        #canvas-container canvas {
+            display: block;
+            width: 100vw;
+            height: 100vh;
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(15, 23, 42, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(99, 102, 241, 0.5);
+            border-radius: 9999px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(99, 102, 241, 0.8);
+        }
+        .glass-panel {
+            background: rgba(15, 23, 42, 0.78);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+        }
+    </style>
+</head>
+<body class="text-slate-100">
+
+    <!-- 3D Canvas Container -->
+    <div id="canvas-container" class="relative w-full h-screen"></div>
+
+    <!-- Top Header / HUD -->
+    <div class="fixed top-4 left-4 right-4 flex flex-wrap items-center justify-between gap-3 pointer-events-none z-10">
+        <!-- Brand & Current Location -->
+        <div class="glass-panel rounded-2xl px-4 py-3 flex items-center gap-3 pointer-events-auto shadow-xl">
+            <div class="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center shadow-lg shadow-indigo-500/30">
+                <svg class="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"></path>
+                </svg>
+            </div>
+            <div>
+                <div class="flex items-center gap-2">
+                    <h1 class="font-bold text-sm sm:text-base tracking-tight text-white">Office 3D World Builder</h1>
+                    <span class="px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-full">Live Sim</span>
+                </div>
+                <p id="current-zone-label" class="text-xs text-slate-300">1. Main Gate & DFCC ATM (Photo 1)</p>
+            </div>
+        </div>
+
+        <!-- Action Controls -->
+        <div class="flex items-center gap-2 pointer-events-auto">
+            <!-- Upload Button -->
+            <label for="image-upload" class="cursor-pointer bg-indigo-600 hover:bg-indigo-500 active:scale-95 transition-all text-white font-medium text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-indigo-600/30 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"></path>
+                </svg>
+                <span>Add Office Photos</span>
+            </label>
+            <input type="file" id="image-upload" accept="image/*" multiple class="hidden">
+
+            <!-- Toggle Gate Barriers Button -->
+            <button id="btn-toggle-gate" class="glass-panel hover:bg-slate-800/90 active:scale-95 transition-all text-slate-100 font-medium text-xs sm:text-sm px-3.5 py-2.5 rounded-xl shadow-lg flex items-center gap-2">
+                <span id="gate-status-dot" class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
+                <span id="gate-btn-text">Open Barriers</span>
+            </button>
+
+            <!-- Scan Fingerprint Attendance Button (Visible near HR Office) -->
+            <button id="btn-scan-fingerprint" class="hidden bg-emerald-600 hover:bg-emerald-500 active:scale-95 transition-all text-white font-semibold text-xs sm:text-sm px-4 py-2.5 rounded-xl shadow-lg shadow-emerald-600/30 flex items-center gap-2">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4"></path>
+                </svg>
+                <span>Scan Fingerprint [E]</span>
+            </button>
+
+            <!-- Toggle Sidebar -->
+            <button id="btn-toggle-drawer" class="glass-panel hover:bg-slate-800/90 active:scale-95 transition-all text-slate-100 p-2.5 rounded-xl shadow-lg" title="Manage Rooms & Settings">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h7"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Collapsible Side Drawer: Rooms & 3D Depth Settings -->
+    <div id="side-drawer" class="fixed top-20 right-4 w-80 max-w-[calc(100vw-2rem)] glass-panel rounded-2xl p-4 shadow-2xl z-20 transition-all duration-300 transform translate-x-[120%]">
+        <div class="flex items-center justify-between pb-3 border-b border-slate-700/70">
+            <h2 class="font-semibold text-sm text-white flex items-center gap-2">
+                <svg class="w-4 h-4 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"></path>
+                </svg>
+                Office Walkthrough Map
+            </h2>
+            <span id="zone-count-badge" class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">7 Zones</span>
+        </div>
+
+        <!-- Projection Mode Selector -->
+        <div class="mt-3">
+            <label class="block text-[11px] font-medium uppercase tracking-wider text-slate-400 mb-1.5">Uploaded Photo 3D Style</label>
+            <div class="grid grid-cols-2 gap-1.5 bg-slate-900/80 p-1 rounded-xl border border-slate-800">
+                <button id="mode-corridor" class="projection-btn bg-indigo-600 text-white text-xs font-medium py-1.5 px-2 rounded-lg transition-all">3D Room Tunnel</button>
+                <button id="mode-panorama" class="projection-btn text-slate-400 hover:text-white text-xs font-medium py-1.5 px-2 rounded-lg transition-all">360° Curved Wrap</button>
+            </div>
+        </div>
+
+        <!-- 3D Depth Relief Slider -->
+        <div class="mt-3">
+            <div class="flex justify-between text-xs mb-1">
+                <span class="text-slate-400">Photo 3D Depth Extrusion</span>
+                <span id="depth-value-label" class="text-indigo-400 font-medium">High</span>
+            </div>
+            <input id="depth-slider" type="range" min="0" max="100" value="65" class="w-full h-1.5 bg-slate-700 rounded-lg appearance-none cursor-pointer accent-indigo-500">
+        </div>
+
+        <!-- Zones / Rooms List -->
+        <div class="mt-4">
+            <div class="flex items-center justify-between mb-2">
+                <span class="text-[11px] font-medium uppercase tracking-wider text-slate-400">Connected Locations</span>
+                <span class="text-[11px] text-slate-400">Click to teleport</span>
+            </div>
+            <div id="zones-list" class="space-y-2 max-h-56 overflow-y-auto pr-1">
+                <!-- Populated dynamically -->
+            </div>
+        </div>
+
+        <!-- Instructions Footer -->
+        <div class="mt-4 pt-3 border-t border-slate-700/70 text-[11px] text-slate-400 space-y-1">
+            <p class="flex items-center gap-1.5"><span class="text-indigo-400 font-bold">WASD / Arrows:</span> Walk forward, back, left, right</p>
+            <p class="flex items-center gap-1.5"><span class="text-indigo-400 font-bold">Drag Mouse / Touch:</span> Look around 360°</p>
+            <p class="flex items-center gap-1.5"><span class="text-emerald-400 font-bold">Glowing Portals:</span> Walk into portals to enter next photo</p>
+        </div>
+    </div>
+
+    <!-- Bottom On-Screen Touch / Mouse D-Pad & Quick Portal Bar -->
+    <div class="fixed bottom-4 left-4 right-4 flex items-end justify-between pointer-events-none z-10">
+        <!-- Virtual Joystick / Movement Pad for Touch & Click -->
+        <div class="glass-panel rounded-2xl p-2.5 pointer-events-auto shadow-xl flex flex-col items-center gap-1">
+            <button data-move="forward" class="nav-pad-btn w-11 h-11 rounded-xl bg-slate-800/90 hover:bg-indigo-600 active:bg-indigo-500 flex items-center justify-center transition-colors shadow">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 15l7-7 7 7"></path></svg>
+            </button>
+            <div class="flex items-center gap-1">
+                <button data-move="left" class="nav-pad-btn w-11 h-11 rounded-xl bg-slate-800/90 hover:bg-indigo-600 active:bg-indigo-500 flex items-center justify-center transition-colors shadow">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                </button>
+                <button data-move="backward" class="nav-pad-btn w-11 h-11 rounded-xl bg-slate-800/90 hover:bg-indigo-600 active:bg-indigo-500 flex items-center justify-center transition-colors shadow">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                </button>
+                <button data-move="right" class="nav-pad-btn w-11 h-11 rounded-xl bg-slate-800/90 hover:bg-indigo-600 active:bg-indigo-500 flex items-center justify-center transition-colors shadow">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- Next / Previous Zone Quick Switcher -->
+        <div class="glass-panel rounded-2xl px-3 py-2.5 pointer-events-auto shadow-xl flex items-center gap-2">
+            <button id="btn-prev-zone" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 text-xs font-medium flex items-center gap-1 transition-all">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"></path></svg>
+                <span>Prev</span>
+            </button>
+            <div class="px-2 text-center">
+                <div class="text-[10px] uppercase tracking-wider text-slate-400">Location</div>
+                <div id="hud-zone-counter" class="text-xs font-bold text-white">1 / 7</div>
+            </div>
+            <button id="btn-next-zone" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-xs font-medium flex items-center gap-1 transition-all">
+                <span>Next</span>
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path></svg>
+            </button>
+        </div>
+    </div>
+
+    <!-- Toast Notification Box (Replaces alert()) -->
+    <div id="toast-box" class="fixed top-20 left-1/2 transform -translate-x-1/2 glass-panel border-indigo-500/40 text-white px-4 py-2.5 rounded-xl shadow-2xl text-xs sm:text-sm font-medium opacity-0 pointer-events-none transition-opacity duration-300 z-50 flex items-center gap-2">
+        <span class="w-2 h-2 rounded-full bg-indigo-400"></span>
+        <span id="toast-message">Notification</span>
+    </div>
+
+    <script>
+        /**
+         * 3D Office Photo Walkthrough Simulator
+         * Photo-accurate 3D recreation of the user's 5 real-world photos
+         * (Gate -> Courtyard & HR Office on Left with Attached 3-Floor Factory & Covered Hut Downhill Road ->
+         *  Carport -> "WELCOME TO GALPADITENNE" Waterfall Pond -> 3-Floor Main Head Office & East Downhill Road)
+         * integrated into the 2D Master Site Plan (Zones A, B, C, D) + Multi-Photo 3D Room Builder.
+         */
+
+        // --- GLOBAL STATE ---
+        let scene, camera, renderer;
+        let currentZoneIndex = 0;
+        let zones = [];
+        let activeZoneGroup = null;
+        let portalMeshes = [];
+        let gateBarriers = { left: null, right: null, isOpen: false, targetAngle: 0 };
+        let fingerprintTerminal = { position: new THREE.Vector3(-16.4, 1.38, -15.2), screenMesh: null, scanned: false };
+        let wavingFlags = [];
+        let waterfallFlowTex = null;
+        let fountainJets = [];
+        let pondWaterSurface = null;
+        let pondRipples = [];
+        let projectionMode = 'corridor'; // 'corridor' or 'panorama'
+        let depthIntensity = 0.65;
+
+        // Player & Camera Controller State
+        const player = {
+            position: new THREE.Vector3(0, 1.7, 15.5),
+            yaw: 0,
+            pitch: 0,
+            speed: 9.5,
+            isDragging: false,
+            prevMouse: { x: 0, y: 0 },
+            bounds: { minX: -52, maxX: 56, minZ: -112, maxZ: 24 }
+        };
+
+        // Movement Input Flags
+        const keys = { forward: false, backward: false, left: false, right: false };
+        const clock = new THREE.Clock();
+
+        // --- INITIALIZATION ON WINDOW LOAD ---
+        window.onload = function () {
+            init();
+            animate();
+        };
+
+        function init() {
+            const container = document.getElementById('canvas-container');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xa8c5e5);
+            scene.fog = new THREE.FogExp2(0xcbd8e8, 0.0036);
+
+            camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.1, 360);
+            camera.rotation.order = 'YXZ';
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            renderer.outputEncoding = THREE.sRGBEncoding;
+            renderer.toneMapping = THREE.NoToneMapping;
+            container.appendChild(renderer.domElement);
+
+            // Realistic Cloudy Daytime Sky Dome (Matches Photo 1 Sky)
+            const skyDome = new THREE.Mesh(
+                new THREE.SphereGeometry(240, 32, 20),
+                new THREE.MeshBasicMaterial({ map: createCloudySkyTexture(), side: THREE.BackSide, fog: false })
+            );
+            scene.add(skyDome);
+
+            // Lighting setup
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.36);
+            scene.add(ambientLight);
+
+            const skyFillLight = new THREE.HemisphereLight(0xc7e3ff, 0x82745c, 0.2);
+            scene.add(skyFillLight);
+
+            const sunLight = new THREE.DirectionalLight(0xfffbeb, 0.92);
+            sunLight.position.set(28, 52, 24);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 2048;
+            sunLight.shadow.mapSize.height = 2048;
+            sunLight.shadow.camera.near = 1;
+            sunLight.shadow.camera.far = 200;
+            const d = 95;
+            sunLight.shadow.camera.left = -d;
+            sunLight.shadow.camera.right = d;
+            sunLight.shadow.camera.top = d;
+            sunLight.shadow.camera.bottom = -d;
+            scene.add(sunLight);
+
+            // Create the Built-In Master Site Plan Waypoints (Photos 1..5 + Downhill Roads + Zones B/C/D)
+            createDefaultGateZone();
+            loadZone(0);
+            setupEventListeners();
+        }
+
+        // --- PROCEDURAL TEXTURE GENERATORS ---
+        function createSignTexture(text, bgColor, textColor, width = 512, height = 128, fontSize = 44) {
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = bgColor;
+            ctx.fillRect(0, 0, width, height);
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.28)';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(3, 3, width - 6, height - 6);
+
+            ctx.fillStyle = textColor;
+            ctx.font = `bold ${fontSize}px Inter, sans-serif`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+
+            const lines = text.split('\n');
+            if (lines.length === 1) {
+                ctx.fillText(text, width / 2, height / 2);
+            } else {
+                const lineHeight = fontSize * 1.25;
+                const startY = (height - (lines.length - 1) * lineHeight) / 2;
+                lines.forEach((line, idx) => {
+                    ctx.fillText(line, width / 2, startY + idx * lineHeight);
+                });
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createStripedBarrierTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 64;
+            const ctx = canvas.getContext('2d');
+
+            const stripeWidth = 48;
+            for (let x = -64; x < 576; x += stripeWidth * 2) {
+                ctx.fillStyle = '#ffffff';
+                ctx.fillRect(x, 0, stripeWidth, 64);
+                ctx.fillStyle = '#dc2626';
+                ctx.fillRect(x + stripeWidth, 0, stripeWidth, 64);
+            }
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createAsphaltTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#5c6168';
+            ctx.fillRect(0, 0, 512, 512);
+
+            for (let i = 0; i < 12000; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const shade = 75 + Math.floor(Math.random() * 45);
+                ctx.fillStyle = `rgb(${shade}, ${shade + 2}, ${shade + 5})`;
+                ctx.fillRect(x, y, 2, 2);
+            }
+
+            ctx.strokeStyle = 'rgba(42, 46, 52, 0.35)';
+            ctx.lineWidth = 2;
+            ctx.strokeRect(1, 1, 510, 510);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(22, 22);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createCloudySkyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 2048;
+            canvas.height = 1024;
+            const ctx = canvas.getContext('2d');
+
+            const grad = ctx.createLinearGradient(0, 0, 0, canvas.height);
+            grad.addColorStop(0.0, '#5f8fbd');
+            grad.addColorStop(0.32, '#91b7db');
+            grad.addColorStop(0.67, '#c4d9ea');
+            grad.addColorStop(1.0, '#e6e8e3');
+            ctx.fillStyle = grad;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            let seed = 72831;
+            const rand = () => {
+                seed = (seed * 1664525 + 1013904223) >>> 0;
+                return seed / 4294967296;
+            };
+
+            // Layer soft cloud banks, then smaller sunlit and shaded lobes for a natural sky.
+            for (let i = 0; i < 38; i++) {
+                const cx = rand() * canvas.width;
+                const cy = 170 + rand() * 480;
+                const rx = 90 + rand() * 210;
+                const ry = 28 + rand() * 78;
+                const cloudGrad = ctx.createRadialGradient(cx, cy, rx * 0.08, cx, cy, rx);
+                cloudGrad.addColorStop(0, 'rgba(255,255,255,0.64)');
+                cloudGrad.addColorStop(0.38, 'rgba(249,252,255,0.48)');
+                cloudGrad.addColorStop(0.76, 'rgba(229,239,247,0.18)');
+                cloudGrad.addColorStop(1, 'rgba(224,235,245,0)');
+                ctx.fillStyle = cloudGrad;
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, rx, ry, (rand() - 0.5) * 0.1, 0, Math.PI * 2);
+                ctx.fill();
+
+                for (let lobe = 0; lobe < 4; lobe++) {
+                    const lx = cx + (rand() - 0.5) * rx * 1.35;
+                    const ly = cy - ry * (0.12 + rand() * 0.62);
+                    const lr = rx * (0.18 + rand() * 0.24);
+                    const lobeGrad = ctx.createRadialGradient(lx - lr * 0.2, ly - lr * 0.2, 1, lx, ly, lr);
+                    lobeGrad.addColorStop(0, 'rgba(255,255,255,0.72)');
+                    lobeGrad.addColorStop(0.56, 'rgba(255,255,255,0.34)');
+                    lobeGrad.addColorStop(1, 'rgba(244,249,254,0)');
+                    ctx.fillStyle = lobeGrad;
+                    ctx.beginPath();
+                    ctx.ellipse(lx, ly, lr, lr * (0.34 + rand() * 0.25), 0, 0, Math.PI * 2);
+                    ctx.fill();
+                }
+            }
+
+            const haze = ctx.createLinearGradient(0, 610, 0, canvas.height);
+            haze.addColorStop(0, 'rgba(255,255,255,0)');
+            haze.addColorStop(1, 'rgba(255,255,255,0.28)');
+            ctx.fillStyle = haze;
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.encoding = THREE.sRGBEncoding;
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createWeatheredConcreteTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#9499a1';
+            ctx.fillRect(0, 0, 512, 512);
+
+            for (let i = 0; i < 9000; i++) {
+                const x = Math.random() * 512;
+                const y = Math.random() * 512;
+                const v = 128 + Math.floor(Math.random() * 44);
+                ctx.fillStyle = `rgba(${v}, ${v + 2}, ${v + 5}, 0.25)`;
+                ctx.fillRect(x, y, 3, 3);
+            }
+
+            for (let s = 0; s < 36; s++) {
+                const sx = Math.random() * 512;
+                const sh = 60 + Math.random() * 220;
+                ctx.fillStyle = 'rgba(65, 72, 82, 0.12)';
+                ctx.fillRect(sx, 0, 2 + Math.random() * 4, sh);
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createAtmBillboardTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 384;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.fillRect(0, 0, 512, 384);
+
+            const teaGrad = ctx.createLinearGradient(0, 150, 0, 360);
+            teaGrad.addColorStop(0, '#4d7c0f');
+            teaGrad.addColorStop(0.5, '#166534');
+            teaGrad.addColorStop(1, '#14532d');
+            ctx.fillStyle = teaGrad;
+            ctx.fillRect(14, 155, 484, 195);
+
+            for (let i = 0; i < 180; i++) {
+                const lx = 20 + Math.random() * 470;
+                const ly = 165 + Math.random() * 175;
+                ctx.fillStyle = i % 2 === 0 ? 'rgba(132, 204, 22, 0.35)' : 'rgba(20, 83, 45, 0.45)';
+                ctx.beginPath();
+                ctx.ellipse(lx, ly, 12, 5, Math.random() * Math.PI, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            ctx.fillStyle = '#1e293b';
+            ctx.font = 'bold 16px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('DFCC BANK INSTANT CASH &', 210, 46);
+            ctx.fillText('24/7 DIGITAL BANKING', 210, 68);
+            ctx.fillStyle = '#475569';
+            ctx.font = '13px Inter, sans-serif';
+            ctx.fillText('Withdrawals • Balance Inquiry • PIN Change', 210, 94);
+            ctx.fillText('Fast, Secure & Convenient Access', 210, 114);
+
+            ctx.save();
+            ctx.translate(155, 225);
+            ctx.rotate(-0.32);
+            const cardGrad = ctx.createLinearGradient(-85, -52, 85, 52);
+            cardGrad.addColorStop(0, '#e2e8f0');
+            cardGrad.addColorStop(0.55, '#cbd5e1');
+            cardGrad.addColorStop(1, '#16a34a');
+            ctx.fillStyle = cardGrad;
+            ctx.fillRect(-85, -52, 170, 104);
+            ctx.strokeStyle = '#ffffff';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(-85, -52, 170, 104);
+
+            ctx.fillStyle = '#eab308';
+            ctx.fillRect(-66, -16, 24, 18);
+            ctx.fillStyle = '#dc2626';
+            ctx.font = 'bold 15px Inter, sans-serif';
+            ctx.fillText('DFCC BANK', -66, -28);
+            ctx.fillStyle = '#1e3a8a';
+            ctx.font = 'bold 14px Inter, sans-serif';
+            ctx.fillText('VISA', 35, 36);
+            ctx.restore();
+
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(14, 344, 484, 30);
+            ctx.fillStyle = '#dc2626';
+            ctx.font = 'bold 16px Inter, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText('DFCC BANK', 486, 364);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createSlattedGateTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#111827';
+            ctx.fillRect(0, 0, 256, 256);
+
+            for (let y = 0; y < 256; y += 12) {
+                ctx.fillStyle = '#1f2937';
+                ctx.fillRect(0, y, 256, 7);
+                ctx.fillStyle = 'rgba(255,255,255,0.08)';
+                ctx.fillRect(0, y, 256, 2);
+            }
+
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(0, 0, 12, 256);
+            ctx.fillRect(122, 0, 12, 256);
+            ctx.fillRect(244, 0, 12, 256);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createBlueCorrugatedWallTexture(withWindows = true, floors = 3) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#3b6e9c';
+            ctx.fillRect(0, 0, 512, 512);
+
+            for (let x = 0; x < 512; x += 8) {
+                ctx.fillStyle = (x % 16 === 0) ? 'rgba(255,255,255,0.12)' : 'rgba(15,23,42,0.22)';
+                ctx.fillRect(x, 0, 4, 512);
+            }
+
+            if (withWindows) {
+                const floorYs = floors === 3 ? [42, 198, 354] : [80, 290];
+                const winH = floors === 3 ? 96 : 115;
+                floorYs.forEach(wy => {
+                    for (let wx = 44; wx <= 404; wx += 118) {
+                        ctx.fillStyle = '#f8fafc';
+                        ctx.fillRect(wx - 4, wy - 4, 76, winH + 8);
+                        ctx.fillStyle = '#1e293b';
+                        ctx.fillRect(wx, wy, 68, winH);
+                        ctx.strokeStyle = '#e2e8f0';
+                        ctx.lineWidth = 3;
+                        ctx.beginPath();
+                        ctx.moveTo(wx + 34, wy);
+                        ctx.lineTo(wx + 34, wy + winH);
+                        ctx.moveTo(wx, wy + winH / 2);
+                        ctx.lineTo(wx + 68, wy + winH / 2);
+                        ctx.stroke();
+                    }
+                });
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.ClampToEdgeWrapping;
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createStoneWaterfallTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#78716c';
+            ctx.fillRect(0, 0, 512, 512);
+
+            const rows = 12;
+            const rowH = 512 / rows;
+            for (let r = 0; r < rows; r++) {
+                const y = r * rowH;
+                let x = (r % 2) * -28;
+                while (x < 512) {
+                    const bw = 48 + ((r * 17 + Math.max(0, x)) % 36);
+                    const shade = 126 + ((r * 23 + Math.max(0, x) * 7) % 44);
+                    ctx.fillStyle = `rgb(${shade}, ${shade - 4}, ${shade - 10})`;
+                    ctx.fillRect(x + 2, y + 2, bw - 4, rowH - 4);
+
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.22)';
+                    ctx.fillRect(x + 2, y + 2, bw - 4, 4);
+                    ctx.fillStyle = 'rgba(28, 25, 23, 0.35)';
+                    ctx.fillRect(x + 2, y + rowH - 6, bw - 4, 4);
+                    x += bw;
+                }
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createCascadingWaterTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 256;
+            const ctx = canvas.getContext('2d');
+
+            ctx.clearRect(0, 0, 256, 256);
+
+            ctx.fillStyle = 'rgba(186, 230, 253, 0.24)';
+            ctx.fillRect(0, 0, 256, 256);
+
+            for (let i = 0; i < 65; i++) {
+                const sx = Math.random() * 256;
+                const sy = Math.random() * 256;
+                const sw = 2 + Math.random() * 5;
+                const sh = 24 + Math.random() * 58;
+                const grad = ctx.createLinearGradient(0, sy, 0, sy + sh);
+                grad.addColorStop(0, 'rgba(255, 255, 255, 0)');
+                grad.addColorStop(0.5, 'rgba(255, 255, 255, 0.65)');
+                grad.addColorStop(1, 'rgba(224, 242, 254, 0)');
+                ctx.fillStyle = grad;
+                ctx.fillRect(sx, sy, sw, sh);
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createCreamTileTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 128;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#e7e2d5';
+            ctx.fillRect(0, 0, 256, 128);
+
+            ctx.strokeStyle = 'rgba(120, 113, 108, 0.42)';
+            ctx.lineWidth = 2;
+            for (let x = 0; x <= 256; x += 32) {
+                ctx.beginPath();
+                ctx.moveTo(x, 0);
+                ctx.lineTo(x, 128);
+                ctx.stroke();
+            }
+            ctx.beginPath();
+            ctx.moveTo(0, 64);
+            ctx.lineTo(256, 64);
+            ctx.stroke();
+
+            const dampGrad = ctx.createLinearGradient(0, 88, 0, 128);
+            dampGrad.addColorStop(0, 'rgba(87, 83, 78, 0)');
+            dampGrad.addColorStop(1, 'rgba(68, 64, 60, 0.25)');
+            ctx.fillStyle = dampGrad;
+            ctx.fillRect(0, 88, 256, 40);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.ClampToEdgeWrapping;
+            tex.repeat.set(4, 1);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createFlagTexture(type) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 256;
+            canvas.height = 160;
+            const ctx = canvas.getContext('2d');
+
+            if (type === 'buddhist') {
+                const stripes = ['#1d4ed8', '#facc15', '#dc2626', '#f8fafc', '#f97316'];
+                stripes.forEach((c, i) => {
+                    ctx.fillStyle = c;
+                    ctx.fillRect(i * 42, 0, 42, 160);
+                });
+                stripes.forEach((c, i) => {
+                    ctx.fillStyle = c;
+                    ctx.fillRect(210, i * 32, 46, 32);
+                });
+            } else if (type === 'srilanka') {
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(0, 0, 256, 160);
+                ctx.fillStyle = '#15803d';
+                ctx.fillRect(10, 10, 36, 140);
+                ctx.fillStyle = '#ea580c';
+                ctx.fillRect(46, 10, 36, 140);
+                ctx.fillStyle = '#7f1d1d';
+                ctx.fillRect(92, 10, 154, 140);
+                ctx.fillStyle = '#facc15';
+                ctx.fillRect(145, 55, 50, 45);
+            } else {
+                ctx.fillStyle = '#f8fafc';
+                ctx.fillRect(0, 0, 256, 160);
+                ctx.strokeStyle = '#1e3a8a';
+                ctx.lineWidth = 10;
+                ctx.strokeRect(5, 5, 246, 150);
+                ctx.fillStyle = '#1e3a8a';
+                ctx.font = 'bold 34px Inter, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText('K.D.U.', 128, 80);
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        // --- CREATE BUILT-IN PHOTO-ACCURATE WAYPOINT ZONES ---
+        function createDefaultGateZone() {
+            zones.push({
+                id: 'photo-1-gate',
+                name: '1. Main Gate & DFCC ATM (Photo 1)',
+                type: 'built-in-master',
+                startPos: new THREE.Vector3(0, 1.7, 15.5),
+                startYaw: 0,
+                thumbnail: null
+            });
+            zones.push({
+                id: 'photo-2-inside-gate',
+                name: '2. Inside Gate, HR & Fingerprint Box (Photo 2)',
+                type: 'built-in-master',
+                startPos: new THREE.Vector3(-4.2, 1.7, -9.8),
+                startYaw: Math.PI / 2,
+                thumbnail: null
+            });
+            zones.push({
+                id: 'left-downhill-rear-factory',
+                name: '3. HR Left Downhill Covered Hut Road',
+                type: 'built-in-master',
+                startPos: new THREE.Vector3(-12.8, 1.7, -10.2),
+                startYaw: Math.PI / 2,
+                thumbnail: null
+            });
+            zones.push({
+                id: 'photo-3-carport',
+                name: '4. Mid-Courtyard Carport & 3F Factory (Photo 3)',
+                type: 'built-in-master',
+                startPos: new THREE.Vector3(2.5, 1.7, -30.5),
+                startYaw: 0.25,
+                thumbnail: null
+            });
+            zones.push({
+                id: 'photo-4-pond',
+                name: '5. Galpaditenne Waterfall Pond (Photo 4)',
+                type: 'built-in-master',
+                startPos: new THREE.Vector3(3.5, 1.7, -41.5),
+                startYaw: -0.35,
+                thumbnail: null
+            });
+            zones.push({
+                id: 'sloping-road-factory',
+                name: '6. East Downhill Road & 3-Floor Factory',
+                type: 'built-in-master',
+                startPos: new THREE.Vector3(19.2, 1.7, -61.5),
+                startYaw: 0,
+                thumbnail: null
+            });
+            zones.push({
+                id: 'photo-5-headoffice',
+                name: '7. 3-Floor Main Head Office & Lobby (Photo 5)',
+                type: 'built-in-master',
+                startPos: new THREE.Vector3(4.5, 1.7, -68.5),
+                startYaw: 0,
+                thumbnail: null
+            });
+        }
+
+        // --- TERRAIN ELEVATION HELPER (SUPPORTS BOTH DOWNHILL ROADS) ---
+        function getGroundElevation(x, z) {
+            // 1. East Downhill Sloping Road beside Main Head Office (x = 16.0 to 22.4, z = -64.0 down to -88.0)
+            if (x >= 16.0 && x <= 22.4 && z <= -64.0 && z >= -88.0) {
+                const t = (-64.0 - z) / 24.0;
+                return -t * 3.0;
+            }
+            if (x >= 16.0 && x <= 46.0 && z < -88.0 && z >= -112.0) {
+                return -3.0;
+            }
+
+            // 2. Relocated HR downhill road (5 m left and rear)
+            if (z >= -12.2 && z <= -8.2 && x <= -15.5 && x >= -25.5) {
+                const t = (-15.5 - x) / 10.0;
+                return -t * 2.5;
+            }
+            // Lower rear yard at the foot of the relocated road
+            if (z >= -24.5 && z <= -8.1 && x < -24.2 && x >= -31.0) {
+                return -2.5;
+            }
+
+            return 0.0;
+        }
+
+        // --- BUILD PHOTO-ACCURATE 3D OFFICE & FACTORY SIMULATION ---
+        function buildMasterSitePlanGeometry() {
+            const group = new THREE.Group();
+            wavingFlags = [];
+
+            const asphaltTex = createAsphaltTexture();
+            const asphaltMat = new THREE.MeshStandardMaterial({ map: asphaltTex, roughness: 0.92 });
+            const weatheredConcreteTex = createWeatheredConcreteTexture();
+            const concreteMat = new THREE.MeshStandardMaterial({ map: weatheredConcreteTex, roughness: 0.86 });
+            const darkSoffitMat = new THREE.MeshStandardMaterial({ color: 0x262b33, roughness: 0.9 });
+            const darkConcreteMat = new THREE.MeshStandardMaterial({ color: 0x4b5563, roughness: 0.85 });
+            const whiteWallMat = new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.65 });
+            const redAtmMat = new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.42 });
+            const darkInteriorMat = new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.6 });
+            const blackMetalMat = new THREE.MeshStandardMaterial({ color: 0x181c22, metalness: 0.65, roughness: 0.38 });
+            const slattedGateMat = new THREE.MeshStandardMaterial({ map: createSlattedGateTexture(), metalness: 0.55, roughness: 0.45 });
+            const poleMat = new THREE.MeshStandardMaterial({ color: 0x475569, metalness: 0.65, roughness: 0.35 });
+            const grassMat = new THREE.MeshStandardMaterial({ color: 0x4f8f1c, roughness: 0.92 });
+            const crotonRedMat = new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.85 });
+            const leafMat = new THREE.MeshStandardMaterial({ color: 0x196333, roughness: 0.86 });
+            const brightLeafMat = new THREE.MeshStandardMaterial({ color: 0x48a538, roughness: 0.82 });
+            const trunkMat = new THREE.MeshStandardMaterial({ color: 0x5a4030, roughness: 0.94 });
+            const barkLightMat = new THREE.MeshStandardMaterial({ color: 0x806047, roughness: 0.95 });
+            const canopyMats = [
+                leafMat,
+                brightLeafMat,
+                new THREE.MeshStandardMaterial({ color: 0x2f7e43, roughness: 0.88 }),
+                new THREE.MeshStandardMaterial({ color: 0x88a842, roughness: 0.9 })
+            ];
+
+            const blueWallTex3F = createBlueCorrugatedWallTexture(true, 3);
+            const blueWallTex3FRepeat = blueWallTex3F.clone();
+            blueWallTex3FRepeat.repeat.set(6, 1);
+            blueWallTex3FRepeat.needsUpdate = true;
+
+            const blueCorrugatedMat = new THREE.MeshStandardMaterial({ map: blueWallTex3F, roughness: 0.55 });
+            const blueLongWingMat = new THREE.MeshStandardMaterial({ map: blueWallTex3FRepeat, roughness: 0.55 });
+            const blueRoofMat = new THREE.MeshStandardMaterial({ color: 0x26486b, roughness: 0.5, metalness: 0.35 });
+            const silverPanelMat = new THREE.MeshStandardMaterial({ color: 0xcbd5e1, roughness: 0.35, metalness: 0.5 });
+            const charcoalPanelMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.45, metalness: 0.4 });
+            const glassLobbyMat = new THREE.MeshStandardMaterial({
+                color: 0xa5f3fc,
+                roughness: 0.15,
+                metalness: 0.3,
+                transparent: true,
+                opacity: 0.58
+            });
+            const greenTrimMat = new THREE.MeshStandardMaterial({ color: 0x15803d, roughness: 0.65 });
+
+            // =========================================================================
+            // BASE TARMAC GROUND (With Open Sunken Cutouts for Both Downhill Roads)
+            // =========================================================================
+            // 1A. East/Central Courtyard & North Tarmac (x = -10.5 to +16.0, z = -115.1 to -3.1)
+            const centralNorthGround = new THREE.Mesh(new THREE.PlaneGeometry(26.5, 112), asphaltMat);
+            centralNorthGround.rotation.x = -Math.PI / 2;
+            centralNorthGround.position.set(2.75, 0, -59.1);
+            centralNorthGround.receiveShadow = true;
+            group.add(centralNorthGround);
+
+            // 1B. North-West Tarmac north of relocated HR cutout (x = -52.0 to -10.5, z = -115.1 to -24.5)
+            const northWestGround = new THREE.Mesh(new THREE.PlaneGeometry(41.5, 90.6), asphaltMat);
+            northWestGround.rotation.x = -Math.PI / 2;
+            northWestGround.position.set(-31.25, 0, -69.8);
+            northWestGround.receiveShadow = true;
+            group.add(northWestGround);
+
+            // 1C. West tarmac beyond the relocated HR cutout
+            const farWestGround = new THREE.Mesh(new THREE.PlaneGeometry(21.0, 16.4), asphaltMat);
+            farWestGround.rotation.x = -Math.PI / 2;
+            farWestGround.position.set(-41.5, 0, -16.3);
+            farWestGround.receiveShadow = true;
+            group.add(farWestGround);
+            const westGateGround = new THREE.Mesh(new THREE.PlaneGeometry(25.9, 5.0), asphaltMat);
+            westGateGround.rotation.x = -Math.PI / 2;
+            westGateGround.position.set(-39.05, 0, -5.6);
+            westGateGround.receiveShadow = true;
+            group.add(westGateGround);
+
+            // 1D. HR Office Upper Level Apron (x = -24.2 to -15.5, z = -24.5 to -12.3)
+            const hrApronGround = new THREE.Mesh(new THREE.PlaneGeometry(8.7, 12.2), asphaltMat);
+            hrApronGround.rotation.x = -Math.PI / 2;
+            hrApronGround.position.set(-19.85, 0, -18.4);
+            hrApronGround.receiveShadow = true;
+            group.add(hrApronGround);
+            const hrRoadEntryGround = new THREE.Mesh(new THREE.PlaneGeometry(5.0, 4.2), asphaltMat);
+            hrRoadEntryGround.rotation.x = -Math.PI / 2;
+            hrRoadEntryGround.position.set(-13.0, 0, -10.2);
+            hrRoadEntryGround.receiveShadow = true;
+            group.add(hrRoadEntryGround);
+
+            // 2. South Entrance & Gate Apron Tarmac (south of z = -3.1, covers Gate, ATM & South-West)
+            const southGateGround = new THREE.Mesh(new THREE.PlaneGeometry(140, 42), asphaltMat);
+            southGateGround.rotation.x = -Math.PI / 2;
+            southGateGround.position.set(2, 0, 17.9);
+            southGateGround.receiveShadow = true;
+            group.add(southGateGround);
+
+            // 3. South-East Upper Tarmac (east of x = 16.0, south of z = -64.0)
+            const eastUpperGround = new THREE.Mesh(new THREE.PlaneGeometry(56, 61), asphaltMat);
+            eastUpperGround.rotation.x = -Math.PI / 2;
+            eastUpperGround.position.set(44, 0, -33.5);
+            eastUpperGround.receiveShadow = true;
+            group.add(eastUpperGround);
+
+            // Tropical trees use tapered bark, branching limbs and overlapping organic leaf masses.
+            const addTree = (x, z, scale = 1.0, isLargeRainTree = false) => {
+                const tree = new THREE.Group();
+                const trunkH = isLargeRainTree ? 4.9 * scale : 3.0 * scale;
+                const trunk = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.18 * scale, 0.38 * scale, trunkH, 12, 4),
+                    trunkMat
+                );
+                trunk.position.y = trunkH / 2;
+                trunk.castShadow = true;
+                tree.add(trunk);
+
+                const crownSpread = (isLargeRainTree ? 2.0 : 1.2) * scale;
+                const branchCount = isLargeRainTree ? 6 : 4;
+                for (let b = 0; b < branchCount; b++) {
+                    const angle = b * Math.PI * 2 / branchCount + 0.35;
+                    const branchStart = new THREE.Vector3(Math.cos(angle) * 0.06, trunkH * 0.7, Math.sin(angle) * 0.06);
+                    const branchEnd = new THREE.Vector3(Math.cos(angle) * crownSpread * 0.76, trunkH + scale * 0.48, Math.sin(angle) * crownSpread * 0.76);
+                    const direction = new THREE.Vector3().subVectors(branchEnd, branchStart);
+                    const branch = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.045 * scale, 0.12 * scale, direction.length(), 8),
+                        b % 2 ? barkLightMat : trunkMat
+                    );
+                    branch.position.copy(branchStart).add(branchEnd).multiplyScalar(0.5);
+                    branch.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), direction.normalize());
+                    branch.castShadow = true;
+                    tree.add(branch);
+                }
+
+                const crownCount = isLargeRainTree ? 19 : 13;
+                const crownCenterY = trunkH + 0.95 * scale;
+                for (let c = 0; c < crownCount; c++) {
+                    const angle = c * 2.399963;
+                    const ring = Math.sqrt((c + 0.5) / crownCount);
+                    const size = (isLargeRainTree ? 0.88 : 0.63) * scale * (0.78 + ((c * 7) % 5) * 0.09);
+                    const crown = new THREE.Mesh(new THREE.SphereGeometry(size, 14, 11), canopyMats[(c * 3 + Math.floor(c / 3)) % canopyMats.length]);
+                    crown.position.set(
+                        Math.cos(angle) * crownSpread * ring,
+                        crownCenterY + Math.sin(c * 1.73) * 0.54 * scale + (1 - ring) * 0.35 * scale,
+                        Math.sin(angle) * crownSpread * ring
+                    );
+                    crown.scale.set(1.13, 0.78 + ((c + 1) % 3) * 0.12, 0.98);
+                    crown.castShadow = true;
+                    tree.add(crown);
+                }
+
+                const crownTop = new THREE.Mesh(
+                    new THREE.SphereGeometry((isLargeRainTree ? 1.0 : 0.72) * scale, 16, 12),
+                    leafMat
+                );
+                crownTop.position.set(0, crownCenterY + 0.55 * scale, 0);
+                crownTop.scale.set(1.12, 0.85, 1.05);
+                crownTop.castShadow = true;
+                tree.add(crownTop);
+
+                tree.position.set(x, 0, z);
+                group.add(tree);
+            };
+
+            // =========================================================================
+            // PHOTO 1: K.D.U. GROUP MAIN GATE, GUARDHOUSE, BOOM BARRIERS & DFCC BANK ATM
+            // =========================================================================
+            const gateGroup = new THREE.Group();
+
+            // Asymmetric Concrete Archway Piers (Left pier at x = -6.0, Right pier at x = +8.2)
+            const leftPillar = new THREE.Mesh(new THREE.BoxGeometry(1.45, 5.5, 4.4), concreteMat);
+            leftPillar.position.set(-6.0, 2.75, 0);
+            leftPillar.castShadow = true;
+            leftPillar.receiveShadow = true;
+            gateGroup.add(leftPillar);
+
+            const leftPierWinFrame = new THREE.Mesh(new THREE.BoxGeometry(0.14, 1.35, 1.85), whiteWallMat);
+            leftPierWinFrame.position.set(-5.26, 1.75, 0.35);
+            gateGroup.add(leftPierWinFrame);
+            const leftPierWinGlass = new THREE.Mesh(new THREE.BoxGeometry(0.16, 1.18, 1.68), glassLobbyMat);
+            leftPierWinGlass.position.set(-5.25, 1.75, 0.35);
+            gateGroup.add(leftPierWinGlass);
+
+            const rightPillar = new THREE.Mesh(new THREE.BoxGeometry(1.45, 5.5, 4.4), concreteMat);
+            rightPillar.position.set(8.2, 2.75, 0);
+            rightPillar.castShadow = true;
+            rightPillar.receiveShadow = true;
+            gateGroup.add(rightPillar);
+
+            // Center Guardhouse Tower with Open Clerestory Cutout Above Booth (Photo 1)
+            const guardBase = new THREE.Mesh(new THREE.BoxGeometry(2.65, 1.25, 4.1), concreteMat);
+            guardBase.position.set(0.15, 0.625, 0);
+            guardBase.castShadow = true;
+            guardBase.receiveShadow = true;
+            gateGroup.add(guardBase);
+
+            const guardBackWall = new THREE.Mesh(new THREE.BoxGeometry(2.3, 1.7, 0.25), whiteWallMat);
+            guardBackWall.position.set(0.15, 2.1, -1.7);
+            gateGroup.add(guardBackWall);
+
+            const guardWindowGlass = new THREE.Mesh(new THREE.BoxGeometry(2.55, 1.65, 3.6), glassLobbyMat);
+            guardWindowGlass.position.set(0.15, 2.08, 0);
+            gateGroup.add(guardWindowGlass);
+
+            const guardMullion = new THREE.Mesh(new THREE.BoxGeometry(2.62, 0.08, 3.68), silverPanelMat);
+            guardMullion.position.set(0.15, 1.95, 0);
+            gateGroup.add(guardMullion);
+
+            const rolledShutter = new THREE.Mesh(
+                new THREE.BoxGeometry(2.42, 0.48, 3.45),
+                new THREE.MeshStandardMaterial({ color: 0x94a3b8, roughness: 0.5, metalness: 0.3 })
+            );
+            rolledShutter.position.set(0.15, 2.66, 0);
+            gateGroup.add(rolledShutter);
+
+            // Two Security Officers Inside the Guardhouse Booth (Photo 1)
+            const officerMat = new THREE.MeshStandardMaterial({ color: 0x0f172a, roughness: 0.7 });
+            [-0.42, 0.65].forEach(ox => {
+                const head = new THREE.Mesh(new THREE.SphereGeometry(0.17, 12, 12), officerMat);
+                head.position.set(0.15 + ox, 1.98, 1.05);
+                gateGroup.add(head);
+                const shoulders = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.38, 0.24), officerMat);
+                shoulders.position.set(0.15 + ox, 1.65, 1.05);
+                gateGroup.add(shoulders);
+            });
+
+            const guardRoofSlab = new THREE.Mesh(new THREE.BoxGeometry(2.75, 0.85, 4.2), concreteMat);
+            guardRoofSlab.position.set(0.15, 3.325, 0);
+            guardRoofSlab.castShadow = true;
+            gateGroup.add(guardRoofSlab);
+
+            [-1.08, 1.08].forEach(px => {
+                const voidPier = new THREE.Mesh(new THREE.BoxGeometry(0.48, 1.0, 4.2), concreteMat);
+                voidPier.position.set(0.15 + px, 4.25, 0);
+                gateGroup.add(voidPier);
+            });
+
+            const speakerBox = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.42, 0.24), silverPanelMat);
+            speakerBox.position.set(-1.26, 2.35, 1.55);
+            gateGroup.add(speakerBox);
+
+            const topBeam = new THREE.Mesh(new THREE.BoxGeometry(15.75, 1.0, 4.5), concreteMat);
+            topBeam.position.set(1.1, 5.25, 0);
+            topBeam.castShadow = true;
+            gateGroup.add(topBeam);
+
+            const leftSoffit = new THREE.Mesh(new THREE.BoxGeometry(4.1, 0.08, 4.2), darkSoffitMat);
+            leftSoffit.position.set(-3.2, 4.73, 0);
+            gateGroup.add(leftSoffit);
+
+            const rightSoffit = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.08, 4.2), darkSoffitMat);
+            rightSoffit.position.set(4.5, 4.73, 0);
+            gateGroup.add(rightSoffit);
+
+            // 3D Extruded Dark Metallic Block Letters "K. D. U. GROUP" on Top Beam (Photo 1)
+            const kduTitleGroup = new THREE.Group();
+            kduTitleGroup.position.set(0.25, 5.25, 2.28);
+            const kduChars = ['K', '.', 'D', '.', 'U', '.', ' ', 'G', 'R', 'O', 'U', 'P'];
+            const letterCharMat = new THREE.MeshStandardMaterial({ color: 0x272b33, metalness: 0.45, roughness: 0.35 });
+            kduChars.forEach((ch, idx) => {
+                if (ch === ' ') return;
+                const charTex = createSignTexture(ch, '#272b33', '#e2e8f0', 64, 96, 62);
+                const block = new THREE.Mesh(
+                    new THREE.BoxGeometry(ch === '.' ? 0.14 : 0.34, ch === '.' ? 0.16 : 0.56, 0.14),
+                    [
+                        letterCharMat, letterCharMat, letterCharMat, letterCharMat,
+                        new THREE.MeshBasicMaterial({ map: charTex }),
+                        letterCharMat
+                    ]
+                );
+                const xOffset = (idx - (kduChars.length - 1) / 2) * 0.36;
+                const yOffset = ch === '.' ? -0.18 : 0;
+                block.position.set(xOffset, yOffset, 0);
+                kduTitleGroup.add(block);
+            });
+            gateGroup.add(kduTitleGroup);
+
+            // Semicircular White-Curbed Green Planter Island in Front of Guardhouse (Photo 1)
+            const islandBase = new THREE.Mesh(new THREE.CylinderGeometry(1.65, 1.78, 0.28, 28), whiteWallMat);
+            islandBase.position.set(0.15, 0.14, 2.55);
+            gateGroup.add(islandBase);
+
+            const islandGrass = new THREE.Mesh(new THREE.CylinderGeometry(1.48, 1.48, 0.34, 28), grassMat);
+            islandGrass.position.set(0.15, 0.18, 2.55);
+            gateGroup.add(islandGrass);
+
+            [[-0.7, 2.6], [0.0, 3.1], [0.75, 2.55], [-0.35, 2.1], [0.45, 2.1]].forEach(([sx, sz], idx) => {
+                const plant = new THREE.Mesh(
+                    new THREE.DodecahedronGeometry(0.24 + (idx % 2) * 0.06, 0),
+                    idx % 2 === 0 ? brightLeafMat : crotonRedMat
+                );
+                plant.position.set(0.15 + sx, 0.38, sz);
+                gateGroup.add(plant);
+            });
+
+            [-1.32, 1.62].forEach(cx => {
+                const catchPost = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 1.15, 8), blackMetalMat);
+                catchPost.position.set(cx, 0.575, 1.45);
+                gateGroup.add(catchPost);
+            });
+
+            const leftGateBody = new THREE.Mesh(new THREE.BoxGeometry(3.2, 2.85, 0.22), slattedGateMat);
+            leftGateBody.position.set(-8.3, 1.425, 1.1);
+            leftGateBody.castShadow = true;
+            gateGroup.add(leftGateBody);
+
+            const leftGateHood = new THREE.Mesh(new THREE.BoxGeometry(3.35, 0.32, 0.42), blackMetalMat);
+            leftGateHood.position.set(-8.3, 2.95, 1.1);
+            gateGroup.add(leftGateHood);
+
+            const rightGateFolded = new THREE.Mesh(new THREE.BoxGeometry(1.65, 2.75, 0.42), slattedGateMat);
+            rightGateFolded.position.set(6.75, 1.375, 0.95);
+            rightGateFolded.rotation.y = 0.22;
+            gateGroup.add(rightGateFolded);
+
+            const rightIronFence = new THREE.Mesh(new THREE.BoxGeometry(1.75, 2.2, 0.14), blackMetalMat);
+            rightIronFence.position.set(9.75, 1.1, 1.25);
+            gateGroup.add(rightIronFence);
+
+            // White Plastered Perimeter Wall on Right with Green Assembly Sign (Photo 1)
+            const rightPerimeterWall = new THREE.Group();
+            rightPerimeterWall.position.set(16.5, 0, 2.8);
+            rightPerimeterWall.rotation.y = -0.24;
+
+            const rWallBody = new THREE.Mesh(new THREE.BoxGeometry(12.2, 2.45, 0.35), whiteWallMat);
+            rWallBody.position.y = 1.225;
+            rWallBody.castShadow = true;
+            rWallBody.receiveShadow = true;
+            rightPerimeterWall.add(rWallBody);
+
+            const rWallCap = new THREE.Mesh(new THREE.BoxGeometry(12.3, 0.14, 0.46), concreteMat);
+            rWallCap.position.y = 2.5;
+            rightPerimeterWall.add(rWallCap);
+
+            const assemblySignTex = createSignTexture('EXIT  ➜', '#16a34a', '#ffffff', 192, 96, 36);
+            const assemblySign = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.75, 0.38),
+                new THREE.MeshBasicMaterial({ map: assemblySignTex })
+            );
+            assemblySign.position.set(-4.6, 1.95, 0.19);
+            rightPerimeterWall.add(assemblySign);
+
+            gateGroup.add(rightPerimeterWall);
+
+            // Striped Boom Barriers & White Motor Housing Pedestals (Photo 1)
+            const barrierTex = createStripedBarrierTexture();
+            const barrierMat = new THREE.MeshStandardMaterial({ map: barrierTex, roughness: 0.4 });
+
+            const leftPedestal = new THREE.Mesh(new THREE.BoxGeometry(0.45, 1.3, 0.45), whiteWallMat);
+            leftPedestal.position.set(-4.95, 0.65, 1.45);
+            gateGroup.add(leftPedestal);
+
+            const leftArmPivot = new THREE.Group();
+            leftArmPivot.position.set(-4.95, 1.08, 1.45);
+            const leftArm = new THREE.Mesh(new THREE.BoxGeometry(3.75, 0.11, 0.11), barrierMat);
+            leftArm.position.set(1.875, 0, 0);
+            leftArmPivot.add(leftArm);
+            gateGroup.add(leftArmPivot);
+            gateBarriers.left = leftArmPivot;
+
+            const rightPlinth = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.42, 0.85), concreteMat);
+            rightPlinth.position.set(8.65, 0.21, 1.45);
+            gateGroup.add(rightPlinth);
+
+            const rightPedestal = new THREE.Mesh(new THREE.BoxGeometry(0.48, 1.15, 0.48), whiteWallMat);
+            rightPedestal.position.set(8.65, 0.98, 1.45);
+            gateGroup.add(rightPedestal);
+
+            const rightArmPivot = new THREE.Group();
+            rightArmPivot.position.set(8.65, 1.12, 1.45);
+            const rightArm = new THREE.Mesh(new THREE.BoxGeometry(7.15, 0.12, 0.12), barrierMat);
+            rightArm.position.set(-3.575, 0, 0);
+            rightArmPivot.add(rightArm);
+            gateGroup.add(rightArmPivot);
+            gateBarriers.right = rightArmPivot;
+
+            group.add(gateGroup);
+
+            // The user's red outline continues from the end of the entrance wall around the service row.
+            // The wall's finished top is exactly 1.5 m above grade, including its cap.
+            const markedWallPath = [
+                [22.45, 1.35],
+                [43.5, 1.35],
+                [43.5, -62.0],
+                [22.45, -62.0],
+                [22.45, 1.35]
+            ];
+            const wallBodyMat = new THREE.MeshStandardMaterial({ color: 0xe7e6df, roughness: 0.9 });
+            const wallBaseMat = new THREE.MeshStandardMaterial({ color: 0x8d8c85, roughness: 0.94 });
+            const wallCapMat = new THREE.MeshStandardMaterial({ color: 0xd4d2ca, roughness: 0.72 });
+            const wallPostMat = new THREE.MeshStandardMaterial({ color: 0xd8d6ce, roughness: 0.84 });
+            const newWallGroup = new THREE.Group();
+            const wallHalfThickness = 0.18;
+            const wallBaseHeight = 0.18;
+            const wallBodyHeight = 1.20;
+            const wallCapHeight = 0.12;
+            const wallHeight = wallBaseHeight + wallBodyHeight + wallCapHeight;
+
+            for (let p = 0; p < markedWallPath.length - 1; p++) {
+                const [x1, z1] = markedWallPath[p];
+                const [x2, z2] = markedWallPath[p + 1];
+                const dx = x2 - x1;
+                const dz = z2 - z1;
+                const length = Math.hypot(dx, dz);
+                const centerX = (x1 + x2) / 2;
+                const centerZ = (z1 + z2) / 2;
+                const rotationY = -Math.atan2(dz, dx);
+                const makeWallPart = (width, height, depth, y, material, xOffset = 0) => {
+                    const mesh = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), material);
+                    mesh.position.set(centerX + Math.cos(rotationY) * xOffset, y, centerZ - Math.sin(rotationY) * xOffset);
+                    mesh.rotation.y = rotationY;
+                    mesh.castShadow = true;
+                    mesh.receiveShadow = true;
+                    newWallGroup.add(mesh);
+                };
+
+                makeWallPart(length, wallBaseHeight, wallHalfThickness * 2 + 0.04, wallBaseHeight / 2, wallBaseMat);
+                makeWallPart(length, wallBodyHeight, wallHalfThickness * 2, wallBaseHeight + wallBodyHeight / 2, wallBodyMat);
+                makeWallPart(length + 0.12, wallCapHeight, wallHalfThickness * 2 + 0.12, wallHeight - wallCapHeight / 2, wallCapMat);
+
+                for (let along = 0; along <= length; along += 4.0) {
+                    makeWallPart(0.34, wallHeight, 0.42, wallHeight / 2, wallPostMat, along - length / 2);
+                }
+            }
+
+            group.add(newWallGroup);
+
+            // =========================================================================
+            // DFCC BANK ATM CORNER BOOTH ON LEFT OUTSIDE GATE (Exact Photo 1 Design)
+            // =========================================================================
+            const atmGroup = new THREE.Group();
+            atmGroup.position.set(-12.8, 0, 4.8);
+            atmGroup.rotation.y = -0.14;
+
+            const atmCore = new THREE.Mesh(new THREE.BoxGeometry(5.6, 3.25, 5.4), darkInteriorMat);
+            atmCore.position.set(-0.2, 1.625, -0.2);
+            atmGroup.add(atmCore);
+
+            [-1.1, 0.6].forEach(kx => {
+                const kiosk = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.85, 1.85, 0.75),
+                    new THREE.MeshStandardMaterial({ color: 0x991b1b, roughness: 0.4 })
+                );
+                kiosk.position.set(kx, 0.95, -1.6);
+                atmGroup.add(kiosk);
+
+                const kioskScreen = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.42, 0.34),
+                    new THREE.MeshBasicMaterial({ color: 0xbae6fd })
+                );
+                kioskScreen.position.set(kx, 1.32, -1.21);
+                atmGroup.add(kioskScreen);
+            });
+
+            [-2.7, 0.1, 2.65].forEach(px => {
+                const redPillar = new THREE.Mesh(new THREE.BoxGeometry(0.42, 3.2, 0.42), redAtmMat);
+                redPillar.position.set(px, 1.6, 2.42);
+                redPillar.castShadow = true;
+                atmGroup.add(redPillar);
+            });
+
+            const atmFrontGlass = new THREE.Mesh(new THREE.BoxGeometry(2.35, 2.75, 0.12), glassLobbyMat);
+            atmFrontGlass.position.set(1.38, 1.4, 2.38);
+            atmGroup.add(atmFrontGlass);
+
+            const frontWhiteFascia = new THREE.Mesh(new THREE.BoxGeometry(6.1, 0.62, 0.45), whiteWallMat);
+            frontWhiteFascia.position.set(-0.05, 3.38, 2.52);
+            frontWhiteFascia.castShadow = true;
+            atmGroup.add(frontWhiteFascia);
+
+            const frontAtmSignTex = createSignTexture('DFCC BANK   ATM', '#ffffff', '#1e293b', 512, 72, 34);
+            const frontAtmSign = new THREE.Mesh(
+                new THREE.PlaneGeometry(5.6, 0.52),
+                new THREE.MeshBasicMaterial({ map: frontAtmSignTex })
+            );
+            frontAtmSign.position.set(-0.05, 3.38, 2.76);
+            atmGroup.add(frontAtmSign);
+
+            const sideRedFascia = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.62, 5.9), redAtmMat);
+            sideRedFascia.position.set(2.82, 3.38, -0.2);
+            sideRedFascia.castShadow = true;
+            atmGroup.add(sideRedFascia);
+
+            const sideAtmSignTex = createSignTexture('✔ DFCC BANK   ATM', '#dc2626', '#ffffff', 512, 72, 34);
+            const sideAtmSign = new THREE.Mesh(
+                new THREE.PlaneGeometry(5.5, 0.52),
+                new THREE.MeshBasicMaterial({ map: sideAtmSignTex })
+            );
+            sideAtmSign.position.set(3.06, 3.38, -0.2);
+            sideAtmSign.rotation.y = Math.PI / 2;
+            atmGroup.add(sideAtmSign);
+
+            const sideWall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 3.15, 5.4), whiteWallMat);
+            sideWall.position.set(2.65, 1.575, -0.2);
+            atmGroup.add(sideWall);
+
+            const billboardFrame = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.35, 3.55), silverPanelMat);
+            billboardFrame.position.set(2.8, 1.55, -0.45);
+            atmGroup.add(billboardFrame);
+
+            const billboardTex = createAtmBillboardTexture();
+            const billboardMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(3.42, 2.22),
+                new THREE.MeshBasicMaterial({ map: billboardTex })
+            );
+            billboardMesh.position.set(2.87, 1.55, -0.45);
+            billboardMesh.rotation.y = Math.PI / 2;
+            atmGroup.add(billboardMesh);
+
+            const atmRoof = new THREE.Mesh(new THREE.BoxGeometry(6.15, 0.22, 5.95), whiteWallMat);
+            atmRoof.position.set(-0.05, 3.72, -0.2);
+            atmGroup.add(atmRoof);
+
+            group.add(atmGroup);
+
+            // Clean, Uncrowded Tropical Trees Framing the Entrance (Reduced Density)
+            addTree(-16.5, -1.5, 1.4, true);
+            addTree(13.5, -2.5, 1.45, true);
+
+            // =========================================================================
+            // PHOTO 2: INSIDE GATE COURTYARD, CROTON GARDEN ISLAND, SPOTLIGHT & HR LEFT
+            // =========================================================================
+            const gardenIsland = new THREE.Group();
+            gardenIsland.position.set(-2.4, 0, -10.5);
+            gardenIsland.rotation.y = 0.14;
+
+            const curb = new THREE.Mesh(new THREE.BoxGeometry(3.8, 0.24, 9.6), darkConcreteMat);
+            curb.position.y = 0.12;
+            gardenIsland.add(curb);
+
+            const lawn = new THREE.Mesh(new THREE.BoxGeometry(3.4, 0.28, 9.2), grassMat);
+            lawn.position.y = 0.16;
+            gardenIsland.add(lawn);
+
+            for (let sz = -4.0; sz <= 4.0; sz += 1.15) {
+                [-1.35, 1.35].forEach(sx => {
+                    const shrub = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), crotonRedMat);
+                    shrub.position.set(sx, 0.48, sz);
+                    gardenIsland.add(shrub);
+                });
+            }
+
+            const spotPole = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.11, 5.4, 10), poleMat);
+            spotPole.position.set(-0.9, 2.7, 2.8);
+            gardenIsland.add(spotPole);
+
+            const floodLightHead = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.42, 0.22), darkConcreteMat);
+            floodLightHead.position.set(-0.65, 5.1, 2.8);
+            floodLightHead.rotation.z = -0.45;
+            gardenIsland.add(floodLightHead);
+
+            group.add(gardenIsland);
+
+            // Orange Traffic Cones on the Right Side Inside Gate (Photo 2)
+            const coneMat = new THREE.MeshStandardMaterial({ color: 0xf97316, roughness: 0.4 });
+            [[-14.5, 9.2], [-18.5, 9.6], [-22.5, 9.0]].forEach(([cz, cx]) => {
+                const cone = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.65, 12), coneMat);
+                cone.position.set(cx, 0.325, cz);
+                group.add(cone);
+            });
+
+            // HR OFFICE ON LEFT SIDE RIGHT INSIDE THE GATE (Ground Floor: Y = 0 to 3.8m)
+            const hrGroup = new THREE.Group();
+            hrGroup.position.set(-17.5, 0, -18.5);
+
+            const hrWall = new THREE.Mesh(new THREE.BoxGeometry(6.8, 3.8, 12.0), whiteWallMat);
+            hrWall.position.set(-2.9, 1.9, 0);
+            hrWall.castShadow = true;
+            hrWall.receiveShadow = true;
+            hrGroup.add(hrWall);
+
+            const hrCanopy = new THREE.Mesh(new THREE.BoxGeometry(7.3, 0.22, 12.2), blueRoofMat);
+            hrCanopy.position.set(-2.7, 3.82, 0);
+            hrGroup.add(hrCanopy);
+
+            const hrDoorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.24, 2.6, 2.2), darkConcreteMat);
+            hrDoorFrame.position.set(0.52, 1.3, 2.2);
+            hrGroup.add(hrDoorFrame);
+
+            const hrDoorGlass = new THREE.Mesh(new THREE.BoxGeometry(0.28, 2.4, 1.95), glassLobbyMat);
+            hrDoorGlass.position.set(0.53, 1.3, 2.2);
+            hrGroup.add(hrDoorGlass);
+
+            [-2.2, 4.5].forEach(wz => {
+                const winFrame = new THREE.Mesh(new THREE.BoxGeometry(0.22, 1.3, 2.4), darkConcreteMat);
+                winFrame.position.set(0.52, 2.0, wz);
+                hrGroup.add(winFrame);
+                const winGlass = new THREE.Mesh(new THREE.BoxGeometry(0.26, 1.15, 2.25), glassLobbyMat);
+                winGlass.position.set(0.53, 2.0, wz);
+                hrGroup.add(winGlass);
+            });
+
+            const hrSignTex = createSignTexture('HR OFFICE\nHUMAN RESOURCES', '#1e3a8a', '#ffffff', 512, 112, 34);
+            const hrSign = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.92), new THREE.MeshBasicMaterial({ map: hrSignTex }));
+            hrSign.position.set(0.56, 3.12, 2.2);
+            hrSign.rotation.y = Math.PI / 2;
+            hrGroup.add(hrSign);
+
+            group.add(hrGroup);
+
+            // Interactive Fingerprint Attendance Box at HR Office Entrance
+            const fpGroup = new THREE.Group();
+            fpGroup.position.copy(fingerprintTerminal.position);
+            const fpStand = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.05, 1.35, 8), poleMat);
+            fpStand.position.y = -0.68;
+            fpGroup.add(fpStand);
+            const fpBox = new THREE.Mesh(new THREE.BoxGeometry(0.22, 0.34, 0.14), darkConcreteMat);
+            fpGroup.add(fpBox);
+            const fpScreenTex = createSignTexture('SCAN\nFINGER', '#0284c7', '#ffffff', 128, 96, 26);
+            const fpScreen = new THREE.Mesh(new THREE.PlaneGeometry(0.18, 0.14), new THREE.MeshBasicMaterial({ map: fpScreenTex }));
+            fpScreen.position.set(0.08, 0.06, 0);
+            fpScreen.rotation.y = Math.PI / 2;
+            fpGroup.add(fpScreen);
+            fingerprintTerminal.screenMesh = fpScreen;
+
+            const fpPad = new THREE.Mesh(new THREE.PlaneGeometry(0.12, 0.11), new THREE.MeshBasicMaterial({ color: 0x10b981 }));
+            fpPad.position.set(0.08, -0.08, 0);
+            fpPad.rotation.y = Math.PI / 2;
+            fpGroup.add(fpPad);
+            group.add(fpGroup);
+
+            // =========================================================================
+            // LEFT-OF-HR DOWNWARD ROAD -> REAR & UPPER 3-FLOOR FACTORY WING + HUT ROOF
+            // =========================================================================
+            const leftSlopeRun = 10.0;
+            const leftSlopeDrop = 2.5;
+            const leftSlopeAngle = Math.atan2(leftSlopeDrop, leftSlopeRun);
+            const leftSlopeHyp = Math.hypot(leftSlopeRun, leftSlopeDrop);
+
+            const leftDownhillGroup = new THREE.Group();
+
+            // Sloping Asphalt Road Deck Going Downward Left of HR (x = -10.5 down to -20.5, z = -5.2)
+            const leftRoadDeck = new THREE.Mesh(new THREE.BoxGeometry(leftSlopeHyp, 0.22, 4.0), asphaltMat);
+            leftRoadDeck.position.set(-15.5, -1.36, -5.2);
+            leftRoadDeck.rotation.z = leftSlopeAngle;
+            leftRoadDeck.receiveShadow = true;
+            leftDownhillGroup.add(leftRoadDeck);
+
+            [-7.22, -3.18].forEach(cz => {
+                const lCurb = new THREE.Mesh(new THREE.BoxGeometry(leftSlopeHyp, 0.34, 0.24), whiteWallMat);
+                lCurb.position.set(-15.5, -1.14, cz);
+                lCurb.rotation.z = leftSlopeAngle;
+                leftDownhillGroup.add(lCurb);
+            });
+
+            // Retaining Walls Framing the Left-of-HR Downward Cutout
+            const hrSouthRetaining = new THREE.Mesh(new THREE.BoxGeometry(15.6, 2.8, 0.35), darkConcreteMat);
+            hrSouthRetaining.position.set(-18.2, -1.25, -7.3);
+            leftDownhillGroup.add(hrSouthRetaining);
+
+            const gateNorthRetaining = new THREE.Mesh(new THREE.BoxGeometry(15.6, 2.8, 0.35), darkConcreteMat);
+            gateNorthRetaining.position.set(-18.2, -1.25, -3.1);
+            leftDownhillGroup.add(gateNorthRetaining);
+
+            const farWestRetaining = new THREE.Mesh(new THREE.BoxGeometry(0.35, 2.8, 16.6), darkConcreteMat);
+            farWestRetaining.position.set(-26.0, -1.25, -11.3);
+            leftDownhillGroup.add(farWestRetaining);
+
+            // Lower Rear Yard Floor Behind HR Office (x = -26.0 to -19.2, y = -2.5m)
+            const lowerRearYard = new THREE.Mesh(new THREE.PlaneGeometry(6.8, 16.4), asphaltMat);
+            lowerRearYard.rotation.x = -Math.PI / 2;
+            lowerRearYard.position.set(-22.6, -2.5, -11.3);
+            lowerRearYard.receiveShadow = true;
+            leftDownhillGroup.add(lowerRearYard);
+
+            // 3-FLOOR FACTORY-STYLE BUILDING BEHIND HR WITH TOP 2 FLOORS DIRECTLY OVER HR!
+            const upperTwoFloorTex = createBlueCorrugatedWallTexture(true, 2);
+            const upperTwoFloorMat = new THREE.MeshStandardMaterial({ map: upperTwoFloorTex, roughness: 0.55 });
+
+            // 1. Rear Ground-Floor Section Behind HR (Y = -2.5m up to +3.8m)
+            const rearGroundBody = new THREE.Mesh(new THREE.BoxGeometry(4.0, 6.3, 12.0), blueCorrugatedMat);
+            rearGroundBody.position.set(-17.5, 0.65, -13.5);
+            rearGroundBody.castShadow = true;
+            leftDownhillGroup.add(rearGroundBody);
+
+            const rearDoor = new THREE.Mesh(
+                new THREE.BoxGeometry(0.22, 2.5, 2.4),
+                new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.35 })
+            );
+            rearDoor.position.set(-19.52, -1.25, -9.8);
+            leftDownhillGroup.add(rearDoor);
+
+            // 2. Upper Two Floors Sitting Directly on Top of the HR Office (Y = +3.8m up to +11.4m)
+            const upperHrTwoFloors = new THREE.Mesh(new THREE.BoxGeometry(7.4, 7.6, 12.0), upperTwoFloorMat);
+            upperHrTwoFloors.position.set(-15.6, 7.6, -13.5);
+            upperHrTwoFloors.castShadow = true;
+            upperHrTwoFloors.receiveShadow = true;
+            leftDownhillGroup.add(upperHrTwoFloors);
+
+            const upperHrDivider = new THREE.Mesh(new THREE.BoxGeometry(7.55, 0.22, 12.15), blueRoofMat);
+            upperHrDivider.position.set(-15.6, 7.6, -13.5);
+            leftDownhillGroup.add(upperHrDivider);
+
+            const upperHrRoof = new THREE.Mesh(new THREE.BoxGeometry(7.6, 0.5, 12.4), blueRoofMat);
+            upperHrRoof.position.set(-15.6, 11.65, -13.5);
+            leftDownhillGroup.add(upperHrRoof);
+
+            // =========================================================================
+            // HUT / COVERED PITCHED ROOF OVER THE LEFT-OF-HR DOWNWARD ROAD
+            // =========================================================================
+            const hutGroup = new THREE.Group();
+            const hutLength = leftSlopeHyp + 1.1;
+            const hutCenterX = -15.6;
+            const hutCenterY = -1.25;
+            const hutCenterZ = -5.2;
+            const hutClearHeight = 2.55;
+
+            for (let px = -10.6; px >= -20.6; px -= 2.5) {
+                const t = Math.max(0, Math.min(1, (-10.5 - px) / leftSlopeRun));
+                const roadY = -t * leftSlopeDrop;
+                [-7.16, -3.24].forEach(pz => {
+                    const post = new THREE.Mesh(
+                        new THREE.CylinderGeometry(0.08, 0.09, hutClearHeight + 0.15, 10),
+                        poleMat
+                    );
+                    post.position.set(px, roadY + (hutClearHeight + 0.15) / 2, pz);
+                    post.castShadow = true;
+                    hutGroup.add(post);
+                });
+            }
+
+            const hutRoofPivot = new THREE.Group();
+            hutRoofPivot.position.set(hutCenterX, hutCenterY + hutClearHeight, hutCenterZ);
+            hutRoofPivot.rotation.z = leftSlopeAngle;
+
+            [-1.96, 1.96].forEach(ez => {
+                const eaveBeam = new THREE.Mesh(new THREE.BoxGeometry(hutLength, 0.14, 0.12), whiteWallMat);
+                eaveBeam.position.set(0, 0, ez);
+                hutRoofPivot.add(eaveBeam);
+            });
+
+            const ridgeHeight = 0.72;
+            const ridgeBeam = new THREE.Mesh(new THREE.BoxGeometry(hutLength + 0.1, 0.14, 0.14), whiteWallMat);
+            ridgeBeam.position.set(0, ridgeHeight, 0);
+            hutRoofPivot.add(ridgeBeam);
+
+            const halfSpanZ = 2.25;
+            const pitchAngle = Math.atan2(ridgeHeight, halfSpanZ);
+            const roofSlopeWidth = Math.hypot(halfSpanZ, ridgeHeight) + 0.25;
+
+            const southRoofSlope = new THREE.Mesh(
+                new THREE.BoxGeometry(hutLength + 0.35, 0.1, roofSlopeWidth),
+                blueRoofMat
+            );
+            southRoofSlope.position.set(0, ridgeHeight / 2, halfSpanZ / 2);
+            southRoofSlope.rotation.x = pitchAngle;
+            southRoofSlope.castShadow = true;
+            hutRoofPivot.add(southRoofSlope);
+
+            const northRoofSlope = new THREE.Mesh(
+                new THREE.BoxGeometry(hutLength + 0.35, 0.1, roofSlopeWidth),
+                blueRoofMat
+            );
+            northRoofSlope.position.set(0, ridgeHeight / 2, -halfSpanZ / 2);
+            northRoofSlope.rotation.x = -pitchAngle;
+            northRoofSlope.castShadow = true;
+            hutRoofPivot.add(northRoofSlope);
+
+            [-hutLength / 2 + 0.15, 0, hutLength / 2 - 0.15].forEach(tx => {
+                const tieBeam = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, 3.92), whiteWallMat);
+                tieBeam.position.set(tx, 0.02, 0);
+                hutRoofPivot.add(tieBeam);
+
+                const kingPost = new THREE.Mesh(new THREE.BoxGeometry(0.1, ridgeHeight, 0.1), whiteWallMat);
+                kingPost.position.set(tx, ridgeHeight / 2, 0);
+                hutRoofPivot.add(kingPost);
+            });
+
+            [-3.2, 0, 3.2].forEach(lx => {
+                const lamp = new THREE.Mesh(
+                    new THREE.BoxGeometry(1.1, 0.06, 0.16),
+                    new THREE.MeshBasicMaterial({ color: 0xfef08a })
+                );
+                lamp.position.set(lx, ridgeHeight - 0.1, 0);
+                hutRoofPivot.add(lamp);
+            });
+
+            const hutSignTex = createSignTexture('COVERED WALKWAY • REAR WING', '#1e3a8a', '#f8fafc', 448, 64, 22);
+            const hutSign = new THREE.Mesh(
+                new THREE.PlaneGeometry(3.2, 0.44),
+                new THREE.MeshBasicMaterial({ map: hutSignTex, side: THREE.DoubleSide })
+            );
+            hutSign.position.set(hutLength / 2 + 0.18, 0.25, 0);
+            hutSign.rotation.y = Math.PI / 2;
+            hutRoofPivot.add(hutSign);
+
+            leftDownhillGroup.add(hutGroup);
+            leftDownhillGroup.add(hutRoofPivot);
+
+            leftDownhillGroup.position.set(-5, 0, -5);
+            group.add(leftDownhillGroup);
+
+            // Row of Parked Motorcycles in Front of HR Office (Photo 2)
+            for (let mz = -8.6; mz >= -18.2; mz -= 1.45) {
+                const bike = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.72, 1.55), blackMetalMat);
+                body.position.y = 0.65;
+                bike.add(body);
+                [-0.48, 0.48].forEach(wz => {
+                    const wheel = new THREE.Mesh(new THREE.TorusGeometry(0.26, 0.07, 8, 14), blackMetalMat);
+                    wheel.rotation.y = Math.PI / 2;
+                    wheel.position.set(0, 0.3, wz);
+                    bike.add(wheel);
+                });
+                bike.position.set(-15.6, 0, mz - 5);
+                bike.rotation.y = -0.15;
+                group.add(bike);
+            }
+
+            // 3-STORY BLUE CORRUGATED MAIN FACTORY (HALF-BEHIND HR AT X = -15.5, TOUCHING HR & 3 FLOORS TALL)
+            const frontBlueBlock = new THREE.Group();
+            frontBlueBlock.position.set(-23.0, 0, -46.5);
+
+            const fbBody = new THREE.Mesh(new THREE.BoxGeometry(15.0, 11.4, 14.0), blueCorrugatedMat);
+            fbBody.position.y = 5.7;
+            fbBody.castShadow = true;
+            frontBlueBlock.add(fbBody);
+
+            const fbDivider = new THREE.Mesh(new THREE.BoxGeometry(15.2, 0.22, 14.2), blueRoofMat);
+            fbDivider.position.y = 7.6;
+            frontBlueBlock.add(fbDivider);
+
+            const fbVeranda = new THREE.Mesh(new THREE.BoxGeometry(2.2, 2.6, 10.5), darkInteriorMat);
+            fbVeranda.position.set(1.4, 1.3, 0.2);
+            frontBlueBlock.add(fbVeranda);
+
+            const fbAwning = new THREE.Mesh(new THREE.BoxGeometry(2.8, 0.25, 11.5), blueRoofMat);
+            fbAwning.position.set(2.0, 2.75, 0.2);
+            fbAwning.rotation.z = -0.12;
+            frontBlueBlock.add(fbAwning);
+
+            const fbRoof = new THREE.Mesh(new THREE.BoxGeometry(15.6, 0.5, 14.6), blueRoofMat);
+            fbRoof.position.y = 11.65;
+            frontBlueBlock.add(fbRoof);
+
+            const factorySignTex = createSignTexture('FACTORY PRODUCTION WING', '#1e3a8a', '#f8fafc', 512, 80, 30);
+            const factorySign = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 0.78), new THREE.MeshBasicMaterial({ map: factorySignTex }));
+            factorySign.position.set(2.54, 7.6, 0.5);
+            factorySign.rotation.y = Math.PI / 2;
+            frontBlueBlock.add(factorySign);
+
+            group.add(frontBlueBlock);
+
+            // Short enclosed link keeps the shifted factory attached to the fixed HR floors.
+            const factoryConnector = new THREE.Group();
+            const connectorGroundFloor = new THREE.Mesh(new THREE.BoxGeometry(4.0, 6.3, 15.2), blueCorrugatedMat);
+            connectorGroundFloor.position.set(-22.5, 0.65, -32.0);
+            connectorGroundFloor.castShadow = true;
+            factoryConnector.add(connectorGroundFloor);
+            const connectorUpperFloors = new THREE.Mesh(new THREE.BoxGeometry(3.0, 7.6, 15.2), upperTwoFloorMat);
+            connectorUpperFloors.position.set(-20.6, 7.6, -32.0);
+            connectorUpperFloors.castShadow = true;
+            connectorUpperFloors.receiveShadow = true;
+            factoryConnector.add(connectorUpperFloors);
+            const connectorDivider = new THREE.Mesh(new THREE.BoxGeometry(3.15, 0.22, 15.35), blueRoofMat);
+            connectorDivider.position.set(-20.6, 7.6, -32.0);
+            factoryConnector.add(connectorDivider);
+            const connectorRoof = new THREE.Mesh(new THREE.BoxGeometry(3.2, 0.5, 15.5), blueRoofMat);
+            connectorRoof.position.set(-20.6, 11.65, -32.0);
+            factoryConnector.add(connectorRoof);
+            group.add(factoryConnector);
+
+            // Parked Cars in Front of the Factory Bay (Photo 2)
+            const createCar = (colorHex, x, z, rotY = 0, isSuv = false) => {
+                const car = new THREE.Group();
+                const mat = new THREE.MeshStandardMaterial({ color: colorHex, roughness: 0.28, metalness: 0.45 });
+                const body = new THREE.Mesh(new THREE.BoxGeometry(1.85, isSuv ? 0.9 : 0.72, 4.1), mat);
+                body.position.y = 0.62;
+                body.castShadow = true;
+                car.add(body);
+                const cabin = new THREE.Mesh(new THREE.BoxGeometry(1.62, isSuv ? 0.72 : 0.58, isSuv ? 2.6 : 2.1), mat);
+                cabin.position.set(0, isSuv ? 1.32 : 1.18, -0.15);
+                car.add(cabin);
+                car.position.set(x, 0, z);
+                car.rotation.y = rotY;
+                return car;
+            };
+            group.add(createCar(0x1f2937, -16.4, -43.5, 0.05));
+            group.add(createCar(0x2563eb, -13.8, -43.5, -0.05));
+
+            // =========================================================================
+            // PHOTO 3 & 5: LONG 3-FLOOR FACTORY WING EXTENDING ALL THE WAY TO HEAD OFFICE
+            // =========================================================================
+            const longBlueWing = new THREE.Group();
+            longBlueWing.position.set(-23.0, 0, -74.75);
+            const lbBody = new THREE.Mesh(new THREE.BoxGeometry(15.0, 11.4, 42.5), blueLongWingMat);
+            lbBody.position.y = 5.7;
+            lbBody.castShadow = true;
+            longBlueWing.add(lbBody);
+
+            const lbDivider = new THREE.Mesh(new THREE.BoxGeometry(15.2, 0.22, 42.6), blueRoofMat);
+            lbDivider.position.y = 7.6;
+            longBlueWing.add(lbDivider);
+
+            const lbVeranda = new THREE.Mesh(new THREE.BoxGeometry(2.0, 2.6, 40.5), darkInteriorMat);
+            lbVeranda.position.set(1.5, 1.3, 0);
+            longBlueWing.add(lbVeranda);
+
+            const lbAwning = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.24, 41.5), blueRoofMat);
+            lbAwning.position.set(2.1, 2.75, 0);
+            lbAwning.rotation.z = -0.12;
+            longBlueWing.add(lbAwning);
+
+            const lbRoof = new THREE.Mesh(new THREE.BoxGeometry(15.6, 0.5, 43.1), blueRoofMat);
+            lbRoof.position.y = 11.65;
+            longBlueWing.add(lbRoof);
+            group.add(longBlueWing);
+
+            // Blue-Trimmed Metal Carport & Parked Tuk-Tuk + Vehicles (Photo 3)
+            const carport = new THREE.Group();
+            carport.position.set(-6.8, 0, -36.5);
+            const cpRoof = new THREE.Mesh(new THREE.BoxGeometry(5.2, 0.28, 8.5), blueRoofMat);
+            cpRoof.position.y = 3.1;
+            carport.add(cpRoof);
+            [[-2.2, -3.6], [2.2, -3.6], [-2.2, 3.6], [2.2, 3.6]].forEach(([px, pz]) => {
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 3.1, 8), blackMetalMat);
+                post.position.set(px, 1.55, pz);
+                carport.add(post);
+            });
+            group.add(carport);
+
+            const tukTuk = new THREE.Group();
+            tukTuk.position.set(-4.8, 0, -34.2);
+            tukTuk.rotation.y = 0.45;
+            const ttCanopy = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.45, 2.35), blackMetalMat);
+            ttCanopy.position.y = 1.05;
+            tukTuk.add(ttCanopy);
+            [[-0.68, 0.32, -0.75], [0.68, 0.32, -0.75], [0, 0.32, 0.9]].forEach(([wx, wy, wz]) => {
+                const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.16, 14), blackMetalMat);
+                wheel.rotation.z = Math.PI / 2;
+                wheel.position.set(wx, wy, wz);
+                tukTuk.add(wheel);
+            });
+            group.add(tukTuk);
+
+            group.add(createCar(0xf8fafc, -5.8, -37.8, 0.35));
+            group.add(createCar(0x475569, -7.4, -44.5, 0.4, true));
+            group.add(createCar(0xd1d5db, -7.4, -48.0, 0.4, true));
+            group.add(createCar(0xf8fafc, -7.4, -52.5, 0.4, true));
+
+            // =========================================================================
+            // PHOTO 4: "WELCOME TO GALPADITENNE" WATERFALL POND & FLAGS (Z = -49.5)
+            // =========================================================================
+            const pondGroup = new THREE.Group();
+            pondGroup.position.set(8.2, 0, -49.5);
+            fountainJets = [];
+
+            const pondLawn = new THREE.Mesh(new THREE.BoxGeometry(8.2, 0.22, 6.8), grassMat);
+            pondLawn.position.y = 0.11;
+            pondLawn.receiveShadow = true;
+            pondGroup.add(pondLawn);
+
+            const creamTileMat = new THREE.MeshStandardMaterial({ map: createCreamTileTexture(), roughness: 0.68 });
+            const basinWallMat = new THREE.MeshStandardMaterial({ color: 0xe7e2d5, roughness: 0.65 });
+
+            const frontBasinWall = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.66, 0.34), creamTileMat);
+            frontBasinWall.position.set(0, 0.42, 2.55);
+            frontBasinWall.castShadow = true;
+            pondGroup.add(frontBasinWall);
+
+            const backBasinWall = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.66, 0.34), creamTileMat);
+            backBasinWall.position.set(0, 0.42, -2.15);
+            pondGroup.add(backBasinWall);
+
+            [-3.23, 3.23].forEach(wx => {
+                const sideBasinWall = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.66, 5.04), creamTileMat);
+                sideBasinWall.position.set(wx, 0.42, 0.2);
+                sideBasinWall.castShadow = true;
+                pondGroup.add(sideBasinWall);
+            });
+
+            const poolBed = new THREE.Mesh(
+                new THREE.PlaneGeometry(6.2, 4.4),
+                new THREE.MeshStandardMaterial({ color: 0x0f4c5c, roughness: 0.8 })
+            );
+            poolBed.rotation.x = -Math.PI / 2;
+            poolBed.position.set(0, 0.28, 0.2);
+            pondGroup.add(poolBed);
+
+            const waterMat = new THREE.MeshPhysicalMaterial({
+                color: 0x48a8b3,
+                roughness: 0.2,
+                metalness: 0.02,
+                clearcoat: 0.92,
+                clearcoatRoughness: 0.08,
+                transparent: true,
+                opacity: 0.9,
+                side: THREE.DoubleSide
+            });
+            pondWaterSurface = new THREE.Mesh(new THREE.PlaneGeometry(6.15, 2.75, 56, 28), waterMat);
+            pondWaterSurface.rotation.x = -Math.PI / 2;
+            pondWaterSurface.position.set(0, 0.64, 1.15);
+            pondGroup.add(pondWaterSurface);
+
+            pondRipples = [];
+            [[-2.45, 2.05, 0.0], [2.45, 2.05, 1.5], [0.0, -0.12, 0.7], [-1.0, 0.85, 2.4], [1.05, 1.2, 3.1]].forEach(([rx, rz, offset]) => {
+                const rippleMat = new THREE.MeshBasicMaterial({ color: 0xd5f6f0, transparent: true, opacity: 0.34, depthWrite: false, side: THREE.DoubleSide });
+                const ripple = new THREE.Mesh(new THREE.TorusGeometry(0.28, 0.018, 5, 40), rippleMat);
+                ripple.rotation.x = Math.PI / 2;
+                ripple.position.set(rx, 0.67, rz);
+                pondGroup.add(ripple);
+                pondRipples.push({ mesh: ripple, offset });
+            });
+
+            const splashFoam = new THREE.Mesh(
+                new THREE.BoxGeometry(5.5, 0.08, 0.38),
+                new THREE.MeshBasicMaterial({ color: 0xf0f9ff, transparent: true, opacity: 0.78 })
+            );
+            splashFoam.position.set(0, 0.67, -0.05);
+            pondGroup.add(splashFoam);
+
+            // Two Pink Lotus Fountain Heads on Front-Left & Front-Right Corners of Pool (Photo 4)
+            const lotusMat = new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.4 });
+            const jetMat = new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.72 });
+            [-2.45, 2.45].forEach((lx, idx) => {
+                const lotusGroup = new THREE.Group();
+                lotusGroup.position.set(lx, 0.66, 2.05);
+
+                const pad = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.24, 0.04, 14), leafMat);
+                lotusGroup.add(pad);
+
+                const flowerCup = new THREE.Mesh(new THREE.ConeGeometry(0.16, 0.18, 10, 1, true), lotusMat);
+                flowerCup.rotation.x = Math.PI;
+                flowerCup.position.y = 0.11;
+                lotusGroup.add(flowerCup);
+
+                const jetCone = new THREE.Mesh(new THREE.ConeGeometry(0.18, 0.65, 12, 1, true), jetMat);
+                jetCone.position.set(idx === 0 ? 0.14 : -0.14, 0.38, -0.16);
+                jetCone.rotation.z = idx === 0 ? -0.35 : 0.35;
+                jetCone.rotation.x = -0.32;
+                lotusGroup.add(jetCone);
+                fountainJets.push({ mesh: jetCone, offset: idx * 1.5 });
+
+                pondGroup.add(lotusGroup);
+            });
+
+            // Physical 9-Step Split-Face Granite Waterfall Cascade (Photo 4)
+            const stoneTex = createStoneWaterfallTexture();
+            const stoneMat = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.85 });
+
+            const cascadeBackCore = new THREE.Mesh(new THREE.BoxGeometry(5.6, 3.6, 1.35), stoneMat);
+            cascadeBackCore.position.set(0, 2.35, -1.25);
+            cascadeBackCore.castShadow = true;
+            pondGroup.add(cascadeBackCore);
+
+            const numSteps = 9;
+            for (let s = 0; s < numSteps; s++) {
+                const stepY = 0.82 + s * 0.37;
+                const stepZ = -0.12 - s * 0.115;
+                const stepMesh = new THREE.Mesh(
+                    new THREE.BoxGeometry(5.55, 0.38, 0.32),
+                    stoneMat
+                );
+                stepMesh.position.set(0, stepY, stepZ);
+                stepMesh.castShadow = true;
+                stepMesh.receiveShadow = true;
+                pondGroup.add(stepMesh);
+
+                const lipFoam = new THREE.Mesh(
+                    new THREE.BoxGeometry(5.48, 0.05, 0.08),
+                    new THREE.MeshBasicMaterial({ color: 0xe0f2fe, transparent: true, opacity: 0.55 })
+                );
+                lipFoam.position.set(0, stepY + 0.18, stepZ + 0.15);
+                pondGroup.add(lipFoam);
+            }
+
+            // Animated Flowing Water Veil Over the Stepped Cascade
+            waterfallFlowTex = createCascadingWaterTexture();
+            const waterfallVeilMat = new THREE.MeshBasicMaterial({
+                map: waterfallFlowTex,
+                transparent: true,
+                opacity: 0.82,
+                depthWrite: false
+            });
+            const waterfallVeil = new THREE.Mesh(new THREE.PlaneGeometry(5.45, 3.55), waterfallVeilMat);
+            waterfallVeil.position.set(0, 2.38, -0.52);
+            waterfallVeil.rotation.x = -0.29;
+            pondGroup.add(waterfallVeil);
+
+            // Sloped Stone-Clad & Cream-Trimmed Side Wing Buttresses Flanking the Steps (Photo 4)
+            [-3.02, 3.02].forEach(bx => {
+                const lowerWing = new THREE.Mesh(new THREE.BoxGeometry(0.48, 3.65, 1.45), stoneMat);
+                lowerWing.position.set(bx, 2.38, -1.18);
+                lowerWing.castShadow = true;
+                pondGroup.add(lowerWing);
+
+                const slopedWing = new THREE.Mesh(new THREE.BoxGeometry(0.46, 3.6, 0.72), creamTileMat);
+                slopedWing.position.set(bx, 2.35, -0.56);
+                slopedWing.rotation.x = -0.29;
+                slopedWing.castShadow = true;
+                pondGroup.add(slopedWing);
+            });
+
+            // Wide Cream-Stone Crown Header Beam with Prominent 3D Raised "WELCOME TO GALPADITENNE" Name
+            const headerBox = new THREE.Mesh(new THREE.BoxGeometry(6.75, 0.64, 0.72), basinWallMat);
+            headerBox.position.set(0, 4.38, -1.25);
+            headerBox.castShadow = true;
+            pondGroup.add(headerBox);
+
+            const headerCap = new THREE.Mesh(new THREE.BoxGeometry(6.9, 0.1, 0.82), creamTileMat);
+            headerCap.position.set(0, 4.74, -1.25);
+            pondGroup.add(headerCap);
+
+            // 3D Raised Block Letters Spelling "WELCOME TO GALPADITENNE" (Matches Photo 4 Monument Name)
+            const galpTitleText = 'WELCOME TO GALPADITENNE';
+            const galpLettersGroup = new THREE.Group();
+            galpLettersGroup.position.set(0, 4.38, -0.86);
+            const galpCharSideMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.5, roughness: 0.35 });
+            const charSpacing = 0.255;
+
+            Array.from(galpTitleText).forEach((ch, idx) => {
+                if (ch === ' ') return;
+                const charTex = createSignTexture(ch, '#334155', '#f8fafc', 64, 96, 62);
+                const charBlock = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.22, 0.42, 0.1),
+                    [
+                        galpCharSideMat, galpCharSideMat, galpCharSideMat, galpCharSideMat,
+                        new THREE.MeshBasicMaterial({ map: charTex }),
+                        galpCharSideMat
+                    ]
+                );
+                const xOffset = (idx - (galpTitleText.length - 1) / 2) * charSpacing;
+                charBlock.position.set(xOffset, 0, 0);
+                galpLettersGroup.add(charBlock);
+            });
+            pondGroup.add(galpLettersGroup);
+
+            const galpBackSignTex = createSignTexture('WELCOME TO GALPADITENNE', '#334155', '#f8fafc', 768, 84, 38);
+            const galpBackSign = new THREE.Mesh(
+                new THREE.PlaneGeometry(6.3, 0.52),
+                new THREE.MeshBasicMaterial({ map: galpBackSignTex })
+            );
+            galpBackSign.position.set(0, 4.38, -1.62);
+            galpBackSign.rotation.y = Math.PI;
+            pondGroup.add(galpBackSign);
+
+            // Three Flagpoles with Waving Buddhist, Sri Lankan, and K.D.U. Group Flags
+            const flagTypes = ['buddhist', 'srilanka', 'company'];
+            [-0.82, 0, 0.82].forEach((fx, idx) => {
+                const fPole = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.048, 2.65, 10), poleMat);
+                fPole.position.set(fx, 5.75, -1.25);
+                pondGroup.add(fPole);
+
+                const finial = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.065, 8, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xfacc15, metalness: 0.8, roughness: 0.2 })
+                );
+                finial.position.set(fx, 7.1, -1.25);
+                pondGroup.add(finial);
+
+                const flagTex = createFlagTexture(flagTypes[idx]);
+                const flagMat = new THREE.MeshStandardMaterial({
+                    map: flagTex,
+                    side: THREE.DoubleSide,
+                    roughness: 0.6
+                });
+                const flagGeo = new THREE.PlaneGeometry(1.05, 0.68);
+                flagGeo.translate(0.525, 0, 0);
+                const flagMesh = new THREE.Mesh(flagGeo, flagMat);
+                flagMesh.position.set(fx, 6.62, -1.25);
+                pondGroup.add(flagMesh);
+                wavingFlags.push({ mesh: flagMesh, offset: idx * 1.4 });
+            });
+
+            // Lush Sago Palms (Cycas) Flanking Both Sides of the Waterfall Monument (Photo 4)
+            [-3.75, 3.75].forEach((px, sideIdx) => {
+                const sagoGroup = new THREE.Group();
+                sagoGroup.position.set(px, 0.22, -0.35);
+
+                const sagoTrunk = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.36, 1.05, 10), trunkMat);
+                sagoTrunk.position.y = 0.52;
+                sagoGroup.add(sagoTrunk);
+
+                [
+                    { y: 1.05, count: 10, len: 1.45, tilt: 0.55, mat: leafMat },
+                    { y: 1.25, count: 8, len: 1.25, tilt: 0.32, mat: brightLeafMat }
+                ].forEach((tier, tIdx) => {
+                    for (let f = 0; f < tier.count; f++) {
+                        const angle = (f / tier.count) * Math.PI * 2 + tIdx * 0.35 + sideIdx * 0.2;
+                        const frondPivot = new THREE.Group();
+                        frondPivot.position.set(0, tier.y, 0);
+                        frondPivot.rotation.y = angle;
+
+                        const frondBlade = new THREE.Mesh(
+                            new THREE.BoxGeometry(0.26, 0.05, tier.len),
+                            tier.mat
+                        );
+                        frondBlade.position.set(0, 0, tier.len / 2);
+                        frondBlade.rotation.x = tier.tilt;
+                        frondBlade.castShadow = true;
+                        frondPivot.add(frondBlade);
+                        sagoGroup.add(frondPivot);
+                    }
+                });
+
+                pondGroup.add(sagoGroup);
+            });
+
+            group.add(pondGroup);
+
+            // Large Spreading Rain Tree behind the pond (Photo 4)
+            addTree(14.5, -52.5, 2.0, true);
+
+            // =========================================================================
+            // EAST DOWNHILL SLOPING ROAD BESIDE MAIN HEAD OFFICE -> 3-FLOOR FACTORY
+            // =========================================================================
+            const slopeRun = 24.0;
+            const slopeDrop = 3.0;
+            const slopeAngle = Math.atan2(slopeDrop, slopeRun);
+            const slopeHyp = Math.hypot(slopeRun, slopeDrop);
+
+            const downhillGroup = new THREE.Group();
+
+            const roadDeck = new THREE.Mesh(
+                new THREE.BoxGeometry(6.0, 0.24, slopeHyp),
+                asphaltMat
+            );
+            roadDeck.position.set(19.2, -1.62, -76.0);
+            roadDeck.rotation.x = -slopeAngle;
+            roadDeck.receiveShadow = true;
+            downhillGroup.add(roadDeck);
+
+            [16.3, 22.1].forEach(cx => {
+                const curbBeam = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.28, 0.36, slopeHyp),
+                    whiteWallMat
+                );
+                curbBeam.position.set(cx, -1.38, -76.0);
+                curbBeam.rotation.x = -slopeAngle;
+                downhillGroup.add(curbBeam);
+            });
+
+            const yellowLineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
+            for (let sz = -65.5; sz >= -86.5; sz -= 2.6) {
+                const t = (-64.0 - sz) / slopeRun;
+                const dash = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 1.2), yellowLineMat);
+                dash.position.set(19.2, -t * slopeDrop + 0.02, sz);
+                dash.rotation.x = -slopeAngle;
+                downhillGroup.add(dash);
+            }
+
+            const leftRetainingWall = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.4, 52.0), darkConcreteMat);
+            leftRetainingWall.position.set(16.0, -1.55, -90.0);
+            downhillGroup.add(leftRetainingWall);
+
+            const rightRampWall = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.4, 24.2), darkConcreteMat);
+            rightRampWall.position.set(22.4, -1.55, -76.0);
+            downhillGroup.add(rightRampWall);
+
+            const crossRetainingWall = new THREE.Mesh(new THREE.BoxGeometry(28.0, 3.4, 0.45), darkConcreteMat);
+            crossRetainingWall.position.set(36.2, -1.55, -64.0);
+            downhillGroup.add(crossRetainingWall);
+
+            const junctionSignPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.5, 8), poleMat);
+            junctionSignPost.position.set(15.6, 1.25, -63.5);
+            downhillGroup.add(junctionSignPost);
+
+            const junctionSignTex = createSignTexture('DOWNHILL ROAD\nTO 3-FLOOR FACTORY  ⬇', '#1e3a8a', '#facc15', 384, 112, 24);
+            const junctionSign = new THREE.Mesh(
+                new THREE.PlaneGeometry(2.2, 0.65),
+                new THREE.MeshBasicMaterial({ map: junctionSignTex, side: THREE.DoubleSide })
+            );
+            junctionSign.position.set(15.6, 2.25, -63.5);
+            downhillGroup.add(junctionSign);
+
+            const lowerYardFloor = new THREE.Mesh(new THREE.PlaneGeometry(34.0, 30.0), asphaltMat);
+            lowerYardFloor.rotation.x = -Math.PI / 2;
+            lowerYardFloor.position.set(33.0, -3.0, -101.0);
+            lowerYardFloor.receiveShadow = true;
+            downhillGroup.add(lowerYardFloor);
+
+            // 3-FLOOR FACTORY BUILDING AT BOTTOM OF EAST DOWNHILL ROAD
+            const threeFloorFactory = new THREE.Group();
+            threeFloorFactory.position.set(27.5, -3.0, -96.5);
+
+            const factory3FloorTex = createBlueCorrugatedWallTexture(true, 3);
+            const factory3FloorMat = new THREE.MeshStandardMaterial({ map: factory3FloorTex, roughness: 0.52 });
+
+            const f3Body = new THREE.Mesh(new THREE.BoxGeometry(20.0, 11.4, 12.5), factory3FloorMat);
+            f3Body.position.y = 5.7;
+            f3Body.castShadow = true;
+            threeFloorFactory.add(f3Body);
+
+            [3.8, 7.6].forEach(fy => {
+                const floorBand = new THREE.Mesh(new THREE.BoxGeometry(20.3, 0.24, 12.8), blueRoofMat);
+                floorBand.position.y = fy;
+                threeFloorFactory.add(floorBand);
+            });
+
+            const f3Roof = new THREE.Mesh(new THREE.BoxGeometry(20.8, 0.55, 13.3), blueRoofMat);
+            f3Roof.position.y = 11.65;
+            threeFloorFactory.add(f3Roof);
+
+            const f3Shutter = new THREE.Mesh(
+                new THREE.BoxGeometry(4.6, 3.2, 0.25),
+                new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.35 })
+            );
+            f3Shutter.position.set(-4.2, 1.6, 6.28);
+            threeFloorFactory.add(f3Shutter);
+
+            const f3Canopy = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.24, 2.6), blueRoofMat);
+            f3Canopy.position.set(-4.2, 3.45, 7.4);
+            f3Canopy.rotation.x = 0.14;
+            threeFloorFactory.add(f3Canopy);
+
+            const f3SignTex = createSignTexture('PRODUCTION FACTORY - BLOCK B (3 FLOORS)', '#0f172a', '#f8fafc', 640, 80, 26);
+            const f3Sign = new THREE.Mesh(
+                new THREE.PlaneGeometry(8.2, 0.95),
+                new THREE.MeshBasicMaterial({ map: f3SignTex })
+            );
+            f3Sign.position.set(-1.5, 7.9, 6.32);
+            threeFloorFactory.add(f3Sign);
+
+            downhillGroup.add(threeFloorFactory);
+            group.add(downhillGroup);
+
+            // =========================================================================
+            // PHOTO 5: LARGE 3-FLOOR MAIN HEAD OFFICE TOUCHING FACTORY (Z = -81.0)
+            // =========================================================================
+            const headOfficeGroup = new THREE.Group();
+            headOfficeGroup.position.set(0, 0, -81.0);
+
+            // Ground Floor (Floor 1: Y = 0 to 3.6m) Wide Frosted Glass Lobby & Executive Wing
+            const lobbyGlass = new THREE.Mesh(new THREE.BoxGeometry(25.0, 3.6, 9.2), glassLobbyMat);
+            lobbyGlass.position.set(-3.0, 1.8, -0.8);
+            headOfficeGroup.add(lobbyGlass);
+
+            const lobbyInnerWall = new THREE.Mesh(new THREE.BoxGeometry(24.2, 3.4, 6.4), whiteWallMat);
+            lobbyInnerWall.position.set(-3.0, 1.7, -1.8);
+            headOfficeGroup.add(lobbyInnerWall);
+
+            [-15.2, -11.2, -7.2, -3.2, 0.8, 4.8, 9.2].forEach(lx => {
+                const col = new THREE.Mesh(new THREE.BoxGeometry(0.36, 3.6, 0.36), silverPanelMat);
+                col.position.set(lx, 1.8, 3.82);
+                headOfficeGroup.add(col);
+            });
+
+            const lobbyBand = new THREE.Mesh(new THREE.BoxGeometry(25.05, 0.48, 0.12), whiteWallMat);
+            lobbyBand.position.set(-3.0, 1.45, 3.85);
+            headOfficeGroup.add(lobbyBand);
+
+            const entranceDoorFrame = new THREE.Mesh(new THREE.BoxGeometry(3.8, 2.85, 0.24), charcoalPanelMat);
+            entranceDoorFrame.position.set(-1.2, 1.425, 3.88);
+            headOfficeGroup.add(entranceDoorFrame);
+
+            // Cantilevered 2nd & 3rd Floors (Y = 3.6m to 11.4m -> 3 Floors Total!)
+            const upperCantilever = new THREE.Mesh(new THREE.BoxGeometry(25.1, 7.8, 11.4), silverPanelMat);
+            upperCantilever.position.set(-2.95, 7.5, 0.2);
+            upperCantilever.castShadow = true;
+            upperCantilever.receiveShadow = true;
+            headOfficeGroup.add(upperCantilever);
+
+            [
+                [-14.2, 2.2],
+                [-10.0, 1.5],
+                [-5.6, 2.4],
+                [-1.2, 2.6],
+                [3.4, 1.6],
+                [7.8, 2.2]
+            ].forEach(([cx, cw]) => {
+                const panel = new THREE.Mesh(new THREE.BoxGeometry(cw, 7.84, 11.48), charcoalPanelMat);
+                panel.position.set(cx, 7.5, 0.2);
+                headOfficeGroup.add(panel);
+            });
+
+            const floor23Divider = new THREE.Mesh(new THREE.BoxGeometry(25.2, 0.22, 11.56), charcoalPanelMat);
+            floor23Divider.position.set(-2.95, 7.5, 0.2);
+            headOfficeGroup.add(floor23Divider);
+
+            [-12.1, -7.8, -3.4, 1.1, 5.6].forEach(wx => {
+                const win2F = new THREE.Mesh(new THREE.BoxGeometry(1.15, 2.95, 0.16), glassLobbyMat);
+                win2F.position.set(wx, 5.55, 5.92);
+                headOfficeGroup.add(win2F);
+
+                const win3F = new THREE.Mesh(new THREE.BoxGeometry(1.15, 2.95, 0.16), glassLobbyMat);
+                win3F.position.set(wx, 9.35, 5.92);
+                headOfficeGroup.add(win3F);
+            });
+
+            // Right-Side 3-Floor Glass Stairwell & Lift Tower
+            const glassTowerFrame = new THREE.Mesh(new THREE.BoxGeometry(5.6, 11.0, 8.6), charcoalPanelMat);
+            glassTowerFrame.position.set(12.4, 5.5, -0.4);
+            glassTowerFrame.castShadow = true;
+            headOfficeGroup.add(glassTowerFrame);
+
+            const glassTowerCore = new THREE.Mesh(new THREE.BoxGeometry(4.4, 10.4, 8.8), glassLobbyMat);
+            glassTowerCore.position.set(12.4, 5.4, -0.4);
+            headOfficeGroup.add(glassTowerCore);
+
+            [3.6, 7.3].forEach(sy => {
+                const towerSlab = new THREE.Mesh(new THREE.BoxGeometry(4.5, 0.24, 8.4), silverPanelMat);
+                towerSlab.position.set(12.4, sy, -0.4);
+                headOfficeGroup.add(towerSlab);
+            });
+
+            const hoSignTex = createSignTexture('MAIN HEAD OFFICE', '#0f172a', '#f8fafc', 560, 84, 34);
+            const hoSign = new THREE.Mesh(new THREE.PlaneGeometry(6.4, 0.92), new THREE.MeshBasicMaterial({ map: hoSignTex }));
+            hoSign.position.set(-1.2, 4.15, 5.96);
+            headOfficeGroup.add(hoSign);
+
+            [11.0, 13.4].forEach(ax => {
+                const acUnit = new THREE.Mesh(new THREE.BoxGeometry(1.2, 0.85, 0.9), whiteWallMat);
+                acUnit.position.set(ax, 11.42, 1.2);
+                headOfficeGroup.add(acUnit);
+            });
+            const antennaMast = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.08, 2.8, 8), poleMat);
+            antennaMast.position.set(8.6, 12.8, 2.8);
+            headOfficeGroup.add(antennaMast);
+
+            group.add(headOfficeGroup);
+
+            // Trimmed Green Hedge Along Left Factory Wall Approaching Main Head Office (Photo 5)
+            const hedgeBase = new THREE.Mesh(new THREE.BoxGeometry(1.1, 0.35, 13.0), darkConcreteMat);
+            hedgeBase.position.set(-13.8, 0.175, -68.5);
+            group.add(hedgeBase);
+            const hedgeFoliage = new THREE.Mesh(new THREE.BoxGeometry(1.25, 1.35, 13.1), leafMat);
+            hedgeFoliage.position.set(-13.8, 0.95, -68.5);
+            hedgeFoliage.castShadow = true;
+            group.add(hedgeFoliage);
+
+            // White Sculpted Pots with Golden Palms on Right of Main Head Office Approach (Photo 5)
+            [-69.8, -72.4, -75.0].forEach((pz, idx) => {
+                const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.52, 0.38, 0.72, 16), whiteWallMat);
+                pot.position.set(13.6 - idx * 0.35, 0.36, pz);
+                group.add(pot);
+
+                const palmFronds = new THREE.Mesh(new THREE.DodecahedronGeometry(1.1 + idx * 0.15, 1), brightLeafMat);
+                palmFronds.position.set(13.6 - idx * 0.35, 1.55 + idx * 0.2, pz);
+                group.add(palmFronds);
+            });
+
+            // =========================================================================
+            // ADDITIONAL 2D SITE PLAN ZONES (ZONES B, C, D) CONNECTED AROUND COMPOUND
+            // =========================================================================
+            const addCampusBuilding = (w, h, d, wallMat, roofMat, signText, x, z, rotY = 0) => {
+                const b = new THREE.Group();
+                const body = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), wallMat);
+                body.position.y = h / 2;
+                body.castShadow = true;
+                b.add(body);
+                const roof = new THREE.Mesh(new THREE.BoxGeometry(w + 0.4, 0.3, d + 0.4), roofMat);
+                roof.position.y = h + 0.15;
+                b.add(roof);
+                if (signText) {
+                    const sTex = createSignTexture(signText, '#1e293b', '#f8fafc', 512, 80, 26);
+                    const sMesh = new THREE.Mesh(new THREE.PlaneGeometry(Math.min(w * 0.85, 6.2), 0.78), new THREE.MeshBasicMaterial({ map: sTex }));
+                    sMesh.position.set(0, h * 0.72, d / 2 + 0.04);
+                    b.add(sMesh);
+                }
+                b.position.set(x, 0, z);
+                b.rotation.y = rotY;
+                group.add(b);
+            };
+
+            const purpleTrimMat = new THREE.MeshStandardMaterial({ color: 0x6d28d9, roughness: 0.65 });
+            // Three-storey residence replaces the three small units behind the perimeter wall.
+            const residence = new THREE.Group();
+            residence.position.set(33.8, 0, -18.5);
+            residence.rotation.y = -Math.PI / 2;
+            const residenceWallMat = new THREE.MeshStandardMaterial({ color: 0xe8d7b7, roughness: 0.86 });
+            const residenceTrimMat = new THREE.MeshStandardMaterial({ color: 0x315b49, roughness: 0.68 });
+            const residenceGlassMat = new THREE.MeshStandardMaterial({ color: 0x68aabd, roughness: 0.24, metalness: 0.18 });
+            const residenceBody = new THREE.Mesh(new THREE.BoxGeometry(14.5, 9.6, 9.6), residenceWallMat);
+            residenceBody.position.y = 4.8;
+            residenceBody.castShadow = true;
+            residenceBody.receiveShadow = true;
+            residence.add(residenceBody);
+            for (let floor = 0; floor < 3; floor++) {
+                const levelY = 1.8 + floor * 3.2;
+                for (const wx of [-4.8, -1.6, 1.6, 4.8]) {
+                    const frame = new THREE.Mesh(new THREE.BoxGeometry(1.75, 1.95, 0.18), residenceTrimMat);
+                    frame.position.set(wx, levelY, 4.86);
+                    residence.add(frame);
+                    const glass = new THREE.Mesh(new THREE.BoxGeometry(1.42, 1.62, 0.07), residenceGlassMat);
+                    glass.position.set(wx, levelY, 4.98);
+                    residence.add(glass);
+                    const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.07, 1.62, 0.08), residenceTrimMat);
+                    mullion.position.set(wx, levelY, 5.04);
+                    residence.add(mullion);
+                }
+                if (floor < 2) {
+                    const balcony = new THREE.Mesh(new THREE.BoxGeometry(13.6, 0.18, 1.25), residenceTrimMat);
+                    balcony.position.set(0, (floor + 1) * 3.2, 5.35);
+                    residence.add(balcony);
+                    const railTop = new THREE.Mesh(new THREE.BoxGeometry(13.6, 0.08, 0.08), silverPanelMat);
+                    railTop.position.set(0, (floor + 1) * 3.2 + 0.95, 5.88);
+                    residence.add(railTop);
+                    for (let railX = -6.4; railX <= 6.4; railX += 1.6) {
+                        const baluster = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.9, 0.07), silverPanelMat);
+                        baluster.position.set(railX, (floor + 1) * 3.2 + 0.5, 5.88);
+                        residence.add(baluster);
+                    }
+                }
+            }
+            const residenceDoor = new THREE.Mesh(new THREE.BoxGeometry(1.6, 2.5, 0.16), residenceTrimMat);
+            residenceDoor.position.set(0, 1.25, 4.9);
+            residence.add(residenceDoor);
+            const residenceRoof = new THREE.Mesh(new THREE.BoxGeometry(15.0, 0.32, 10.0), blueRoofMat);
+            residenceRoof.position.y = 9.75;
+            residence.add(residenceRoof);
+            const residenceSignTex = createSignTexture('THREE-STOREY RESIDENCE', '#315b49', '#fff7e8', 512, 80, 28);
+            const residenceSign = new THREE.Mesh(new THREE.PlaneGeometry(4.4, 0.58), new THREE.MeshBasicMaterial({ map: residenceSignTex }));
+            residenceSign.position.set(0, 2.83, 5.0);
+            residence.add(residenceSign);
+            group.add(residence);
+            addCampusBuilding(12, 5.6, 8, blueCorrugatedMat, blueRoofMat, 'BOILER & FIREWOOD (ZONE D)', -34, -68, 0);
+            addCampusBuilding(10, 4.8, 8, blueCorrugatedMat, blueRoofMat, 'WATER PLANT & MECHANIC WORKSHOP', -34, -44, 0);
+
+            const perimeterTrees = [
+                [-29, -26], [-29, -54], [-29, -82],
+                [24, -24], [24, -40],
+                [-14, -92], [2, -94]
+            ];
+            perimeterTrees.forEach(([tx, tz]) => {
+                addTree(tx, tz, 1.35, false);
+            });
+
+            return group;
+        }
+
+        // --- BUILD 3D ENVIRONMENT FOR UPLOADED USER OFFICE PHOTOS ---
+        function buildPhoto3DEnvironment(zone) {
+            const group = new THREE.Group();
+            const texture = zone.texture;
+            const aspect = zone.aspect || 1.5;
+
+            const floorMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, roughness: 0.4, metalness: 0.2 });
+            const floor = new THREE.Mesh(new THREE.PlaneGeometry(36, 46), floorMat);
+            floor.rotation.x = -Math.PI / 2;
+            floor.receiveShadow = true;
+            group.add(floor);
+
+            const grid = new THREE.GridHelper(36, 36, 0x6366f1, 0x334155);
+            grid.position.y = 0.01;
+            group.add(grid);
+
+            const depthFactor = 0.3 + depthIntensity * 1.1;
+
+            if (projectionMode === 'panorama') {
+                const radius = 14;
+                const height = 10.5;
+                const arcLength = Math.PI * 1.35;
+                const cylGeo = new THREE.CylinderGeometry(radius, radius, height, 64, 1, true, Math.PI - arcLength / 2, arcLength);
+                cylGeo.scale(-1, 1, 1);
+
+                const photoMat = new THREE.MeshBasicMaterial({ map: texture, side: THREE.DoubleSide });
+                const cylMesh = new THREE.Mesh(cylGeo, photoMat);
+                cylMesh.position.set(0, height / 2, 0);
+                group.add(cylMesh);
+
+                const ceiling = new THREE.Mesh(
+                    new THREE.CircleGeometry(radius, 32),
+                    new THREE.MeshBasicMaterial({ color: 0x0f172a })
+                );
+                ceiling.rotation.x = Math.PI / 2;
+                ceiling.position.y = height;
+                group.add(ceiling);
+            } else {
+                const roomHeight = 7.5;
+                const roomWidth = Math.min(18, Math.max(10, roomHeight * aspect));
+                const roomDepth = 18 * depthFactor;
+
+                const backMat = new THREE.MeshBasicMaterial({ map: texture });
+                const backWall = new THREE.Mesh(new THREE.PlaneGeometry(roomWidth, roomHeight), backMat);
+                backWall.position.set(0, roomHeight / 2, -roomDepth / 2);
+                group.add(backWall);
+
+                const frameMat = new THREE.MeshStandardMaterial({ color: 0x334155, roughness: 0.5 });
+                const topBeam = new THREE.Mesh(new THREE.BoxGeometry(roomWidth + 0.6, 0.35, 0.5), frameMat);
+                topBeam.position.set(0, roomHeight + 0.15, -roomDepth / 2);
+                group.add(topBeam);
+
+                const leftTex = texture.clone();
+                leftTex.needsUpdate = true;
+                leftTex.wrapS = THREE.ClampToEdgeWrapping;
+                leftTex.repeat.set(0.28, 1);
+                leftTex.offset.set(0, 0);
+                const leftWall = new THREE.Mesh(
+                    new THREE.PlaneGeometry(roomDepth, roomHeight),
+                    new THREE.MeshBasicMaterial({ map: leftTex })
+                );
+                leftWall.rotation.y = Math.PI / 2;
+                leftWall.position.set(-roomWidth / 2, roomHeight / 2, 0);
+                group.add(leftWall);
+
+                const rightTex = texture.clone();
+                rightTex.needsUpdate = true;
+                rightTex.wrapS = THREE.ClampToEdgeWrapping;
+                rightTex.repeat.set(0.28, 1);
+                rightTex.offset.set(0.72, 0);
+                const rightWall = new THREE.Mesh(
+                    new THREE.PlaneGeometry(roomDepth, roomHeight),
+                    new THREE.MeshBasicMaterial({ map: rightTex })
+                );
+                rightWall.rotation.y = -Math.PI / 2;
+                rightWall.position.set(roomWidth / 2, roomHeight / 2, 0);
+                group.add(rightWall);
+
+                const ceilTex = texture.clone();
+                ceilTex.needsUpdate = true;
+                ceilTex.repeat.set(1, 0.25);
+                ceilTex.offset.set(0, 0.75);
+                const ceilMesh = new THREE.Mesh(
+                    new THREE.PlaneGeometry(roomWidth, roomDepth),
+                    new THREE.MeshBasicMaterial({ map: ceilTex })
+                );
+                ceilMesh.rotation.x = Math.PI / 2;
+                ceilMesh.position.set(0, roomHeight, 0);
+                group.add(ceilMesh);
+
+                const floorPhotoTex = texture.clone();
+                floorPhotoTex.needsUpdate = true;
+                floorPhotoTex.repeat.set(1, 0.25);
+                floorPhotoTex.offset.set(0, 0);
+                const floorPhotoMesh = new THREE.Mesh(
+                    new THREE.PlaneGeometry(roomWidth, roomDepth),
+                    new THREE.MeshBasicMaterial({ map: floorPhotoTex, transparent: true, opacity: 0.72 })
+                );
+                floorPhotoMesh.rotation.x = -Math.PI / 2;
+                floorPhotoMesh.position.set(0, 0.02, 0);
+                group.add(floorPhotoMesh);
+            }
+
+            const titleTex = createSignTexture(zone.name.toUpperCase(), 'rgba(15, 23, 42, 0.85)', '#e0e7ff', 640, 96, 36);
+            const titleBoard = new THREE.Mesh(
+                new THREE.PlaneGeometry(6.5, 0.95),
+                new THREE.MeshBasicMaterial({ map: titleTex, transparent: true })
+            );
+            titleBoard.position.set(0, 8.2, projectionMode === 'panorama' ? -12 : -(9 * depthFactor));
+            group.add(titleBoard);
+
+            return group;
+        }
+
+        // --- CREATE GLOWING WALK-THROUGH PORTALS BETWEEN ZONES ---
+        function createPortalsForCurrentZone() {
+            portalMeshes.forEach(p => scene.remove(p.group));
+            portalMeshes = [];
+
+            const currentZone = zones[currentZoneIndex];
+
+            if (currentZone.type === 'built-in-master') {
+                const uploadedStartIdx = zones.findIndex(z => z.type === 'photo');
+                if (uploadedStartIdx !== -1) {
+                    spawnPortal(
+                        new THREE.Vector3(-1.2, 1.8, -74.0),
+                        uploadedStartIdx,
+                        `ENTER HEAD OFFICE LOBBY:\n${zones[uploadedStartIdx].name}`,
+                        0x10b981
+                    );
+                }
+            } else {
+                const nextIdx = currentZoneIndex + 1;
+                if (nextIdx < zones.length) {
+                    const nextZ = projectionMode === 'panorama' ? -11.5 : -(6.8 * (0.3 + depthIntensity * 1.1));
+                    spawnPortal(
+                        new THREE.Vector3(0, 1.8, nextZ),
+                        nextIdx,
+                        `NEXT ROOM:\n${zones[nextIdx].name}`,
+                        0x6366f1
+                    );
+                }
+                const prevIdx = currentZoneIndex - 1;
+                if (prevIdx >= 0) {
+                    const prevZ = projectionMode === 'panorama' ? 11.5 : (6.8 * (0.3 + depthIntensity * 1.1));
+                    spawnPortal(
+                        new THREE.Vector3(0, 1.8, prevZ),
+                        prevIdx,
+                        `BACK TO:\n${zones[prevIdx].name}`,
+                        0xf59e0b
+                    );
+                }
+            }
+        }
+
+        function spawnPortal(position, targetZoneIndex, labelText, colorHex) {
+            const pGroup = new THREE.Group();
+            pGroup.position.copy(position);
+
+            const ringGeo = new THREE.TorusGeometry(1.45, 0.09, 16, 48);
+            const ringMat = new THREE.MeshBasicMaterial({ color: colorHex });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            pGroup.add(ring);
+
+            const discGeo = new THREE.CircleGeometry(1.38, 32);
+            const discMat = new THREE.MeshBasicMaterial({
+                color: colorHex,
+                transparent: true,
+                opacity: 0.22,
+                side: THREE.DoubleSide
+            });
+            const disc = new THREE.Mesh(discGeo, discMat);
+            pGroup.add(disc);
+
+            const labelTex = createSignTexture(labelText, 'rgba(15, 23, 42, 0.9)', '#ffffff', 512, 128, 30);
+            const labelMesh = new THREE.Mesh(
+                new THREE.PlaneGeometry(3.4, 0.85),
+                new THREE.MeshBasicMaterial({ map: labelTex, transparent: true, side: THREE.DoubleSide })
+            );
+            labelMesh.position.set(0, 2.1, 0);
+            pGroup.add(labelMesh);
+
+            scene.add(pGroup);
+            portalMeshes.push({ group: pGroup, ring: ring, targetZoneIndex: targetZoneIndex, position: position });
+        }
+
+        // --- LOAD & SWITCH BETWEEN ZONES ---
+        function loadZone(index, customPos = null, customYaw = null) {
+            if (index < 0 || index >= zones.length) return;
+
+            const prevZone = zones[currentZoneIndex];
+            currentZoneIndex = index;
+            const zone = zones[index];
+
+            const needsGeometryRebuild =
+                !activeZoneGroup ||
+                zone.type !== 'built-in-master' ||
+                (prevZone && prevZone.type !== 'built-in-master');
+
+            if (needsGeometryRebuild) {
+                if (activeZoneGroup) {
+                    scene.remove(activeZoneGroup);
+                }
+                if (zone.type === 'built-in-master') {
+                    activeZoneGroup = buildMasterSitePlanGeometry();
+                    player.bounds = { minX: -52, maxX: 56, minZ: -112, maxZ: 24 };
+                } else {
+                    activeZoneGroup = buildPhoto3DEnvironment(zone);
+                    player.bounds = { minX: -12, maxX: 12, minZ: -14, maxZ: 14 };
+                }
+                scene.add(activeZoneGroup);
+            }
+
+            if (customPos) {
+                player.position.copy(customPos);
+            } else if (zone.startPos) {
+                player.position.copy(zone.startPos);
+            } else {
+                player.position.set(0, 1.7, projectionMode === 'panorama' ? 6.5 : 5.5);
+            }
+            if (zone.type === 'built-in-master') {
+                player.position.y = getGroundElevation(player.position.x, player.position.z) + 1.7;
+            }
+            player.yaw = customYaw !== null ? customYaw : (zone.startYaw !== undefined ? zone.startYaw : 0);
+            player.pitch = 0;
+
+            createPortalsForCurrentZone();
+            updateHUD();
+        }
+
+        // --- MULTI-IMAGE UPLOAD HANDLER ---
+        function handleImageFiles(files) {
+            if (!files || files.length === 0) return;
+
+            const fileArray = Array.from(files);
+            let loadedCount = 0;
+            const firstNewIndex = zones.length;
+
+            fileArray.forEach((file) => {
+                if (!file.type.startsWith('image/')) return;
+
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    const img = new Image();
+                    img.onload = function () {
+                        const texture = new THREE.Texture(img);
+                        texture.needsUpdate = true;
+
+                        const cleanName = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+                        zones.push({
+                            id: 'photo-' + Date.now() + '-' + Math.random().toString(36).substr(2, 5),
+                            name: cleanName || `Office Room ${zones.length}`,
+                            type: 'photo',
+                            texture: texture,
+                            aspect: img.width / img.height,
+                            thumbnail: e.target.result
+                        });
+
+                        loadedCount++;
+                        if (loadedCount === fileArray.length) {
+                            showToast(`Added ${loadedCount} office photo${loadedCount > 1 ? 's' : ''} to 3D world!`);
+                            loadZone(firstNewIndex);
+                        }
+                    };
+                    img.src = e.target.result;
+                };
+                reader.readAsDataURL(file);
+            });
+        }
+
+        // --- INTERACTIVE FINGERPRINT ATTENDANCE SCANNER (AT HR OFFICE) ---
+        function triggerFingerprintScan() {
+            const now = new Date();
+            const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            fingerprintTerminal.scanned = true;
+
+            if (fingerprintTerminal.screenMesh) {
+                const okTex = createSignTexture(`VERIFIED\n${timeStr}`, '#16a34a', '#ffffff', 128, 96, 24);
+                fingerprintTerminal.screenMesh.material.map = okTex;
+                fingerprintTerminal.screenMesh.material.needsUpdate = true;
+            }
+
+            try {
+                const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.type = 'sine';
+                osc.frequency.setValueAtTime(660, audioCtx.currentTime);
+                osc.frequency.setValueAtTime(880, audioCtx.currentTime + 0.12);
+                gain.gain.setValueAtTime(0.15, audioCtx.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.35);
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                osc.start();
+                osc.stop(audioCtx.currentTime + 0.35);
+            } catch (e) {}
+
+            showToast(`Attendance Marked at HR Office (${timeStr})!`);
+        }
+
+        // --- UI & HUD UPDATES ---
+        function updateHUD() {
+            const currentZone = zones[currentZoneIndex];
+            document.getElementById('current-zone-label').textContent = currentZone.name;
+            document.getElementById('hud-zone-counter').textContent = `${currentZoneIndex + 1} / ${zones.length}`;
+            document.getElementById('zone-count-badge').textContent = `${zones.length} Location${zones.length > 1 ? 's' : ''}`;
+
+            document.getElementById('btn-prev-zone').disabled = currentZoneIndex === 0;
+            document.getElementById('btn-next-zone').disabled = currentZoneIndex === zones.length - 1;
+
+            const listContainer = document.getElementById('zones-list');
+            listContainer.innerHTML = '';
+
+            zones.forEach((zone, idx) => {
+                const isActive = idx === currentZoneIndex;
+                const item = document.createElement('div');
+                item.className = `flex items-center gap-2.5 p-2 rounded-xl cursor-pointer transition-all border ${
+                    isActive
+                        ? 'bg-indigo-600/30 border-indigo-500 text-white'
+                        : 'bg-slate-800/50 border-slate-700/50 text-slate-300 hover:bg-slate-800'
+                }`;
+
+                const thumbHtml = zone.thumbnail
+                    ? `<img src="${zone.thumbnail}" class="w-10 h-10 rounded-lg object-cover flex-shrink-0 border border-slate-600" alt="${zone.name}">`
+                    : `<div class="w-10 h-10 rounded-lg bg-slate-700 flex items-center justify-center flex-shrink-0 text-indigo-300">
+                         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"></path></svg>
+                       </div>`;
+
+                item.innerHTML = `
+                    ${thumbHtml}
+                    <div class="min-w-0 flex-1">
+                        <div class="text-xs font-semibold truncate">${zone.name}</div>
+                        <div class="text-[10px] text-slate-400">${zone.type === 'built-in-master' ? 'Photo-Accurate 3D Site' : 'Uploaded Office Photo'}</div>
+                    </div>
+                `;
+
+                item.addEventListener('click', () => loadZone(idx));
+                listContainer.appendChild(item);
+            });
+        }
+
+        function showToast(msg) {
+            const box = document.getElementById('toast-box');
+            document.getElementById('toast-message').textContent = msg;
+            box.classList.remove('opacity-0');
+            clearTimeout(window.toastTimeout);
+            window.toastTimeout = setTimeout(() => {
+                box.classList.add('opacity-0');
+            }, 3200);
+        }
+
+        // --- EVENT LISTENERS (KEYBOARD, MOUSE, TOUCH, UI) ---
+        function setupEventListeners() {
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            document.getElementById('image-upload').addEventListener('change', (e) => {
+                handleImageFiles(e.target.files);
+                e.target.value = '';
+            });
+
+            document.getElementById('btn-toggle-gate').addEventListener('click', () => {
+                gateBarriers.isOpen = !gateBarriers.isOpen;
+                gateBarriers.targetAngle = gateBarriers.isOpen ? Math.PI / 2.15 : 0;
+                document.getElementById('gate-btn-text').textContent = gateBarriers.isOpen ? 'Close Barriers' : 'Open Barriers';
+                document.getElementById('gate-status-dot').className = `w-2.5 h-2.5 rounded-full ${gateBarriers.isOpen ? 'bg-emerald-400' : 'bg-amber-400'}`;
+                showToast(gateBarriers.isOpen ? 'Gate barriers raised! Walk straight through to enter the compound.' : 'Gate barriers lowered.');
+            });
+
+            document.getElementById('btn-scan-fingerprint').addEventListener('click', triggerFingerprintScan);
+
+            const drawer = document.getElementById('side-drawer');
+            document.getElementById('btn-toggle-drawer').addEventListener('click', () => {
+                drawer.classList.toggle('translate-x-[120%]');
+            });
+
+            document.getElementById('mode-corridor').addEventListener('click', () => {
+                projectionMode = 'corridor';
+                document.getElementById('mode-corridor').className = 'projection-btn bg-indigo-600 text-white text-xs font-medium py-1.5 px-2 rounded-lg transition-all';
+                document.getElementById('mode-panorama').className = 'projection-btn text-slate-400 hover:text-white text-xs font-medium py-1.5 px-2 rounded-lg transition-all';
+                if (zones[currentZoneIndex].type === 'photo') loadZone(currentZoneIndex);
+            });
+
+            document.getElementById('mode-panorama').addEventListener('click', () => {
+                projectionMode = 'panorama';
+                document.getElementById('mode-panorama').className = 'projection-btn bg-indigo-600 text-white text-xs font-medium py-1.5 px-2 rounded-lg transition-all';
+                document.getElementById('mode-corridor').className = 'projection-btn text-slate-400 hover:text-white text-xs font-medium py-1.5 px-2 rounded-lg transition-all';
+                if (zones[currentZoneIndex].type === 'photo') loadZone(currentZoneIndex);
+            });
+
+            document.getElementById('depth-slider').addEventListener('input', (e) => {
+                const val = parseInt(e.target.value, 10);
+                depthIntensity = val / 100;
+                document.getElementById('depth-value-label').textContent = val < 35 ? 'Low' : val < 75 ? 'Medium' : 'High';
+                if (zones[currentZoneIndex].type === 'photo') loadZone(currentZoneIndex);
+            });
+
+            document.getElementById('btn-prev-zone').addEventListener('click', () => loadZone(currentZoneIndex - 1));
+            document.getElementById('btn-next-zone').addEventListener('click', () => loadZone(currentZoneIndex + 1));
+
+            window.addEventListener('keydown', (e) => {
+                switch (e.code) {
+                    case 'KeyW':
+                    case 'ArrowUp':
+                        keys.forward = true;
+                        break;
+                    case 'KeyS':
+                    case 'ArrowDown':
+                        keys.backward = true;
+                        break;
+                    case 'KeyA':
+                    case 'ArrowLeft':
+                        keys.left = true;
+                        break;
+                    case 'KeyD':
+                    case 'ArrowRight':
+                        keys.right = true;
+                        break;
+                    case 'KeyE':
+                        if (zones[currentZoneIndex].type === 'built-in-master' &&
+                            player.position.distanceTo(fingerprintTerminal.position) < 4.5) {
+                            triggerFingerprintScan();
+                        }
+                        break;
+                }
+            });
+
+            window.addEventListener('keyup', (e) => {
+                switch (e.code) {
+                    case 'KeyW':
+                    case 'ArrowUp':
+                        keys.forward = false;
+                        break;
+                    case 'KeyS':
+                    case 'ArrowDown':
+                        keys.backward = false;
+                        break;
+                    case 'KeyA':
+                    case 'ArrowLeft':
+                        keys.left = false;
+                        break;
+                    case 'KeyD':
+                    case 'ArrowRight':
+                        keys.right = false;
+                        break;
+                }
+            });
+
+            document.querySelectorAll('.nav-pad-btn').forEach(btn => {
+                const dir = btn.getAttribute('data-move');
+                const startMove = (e) => {
+                    e.preventDefault();
+                    keys[dir] = true;
+                };
+                const stopMove = (e) => {
+                    e.preventDefault();
+                    keys[dir] = false;
+                };
+                btn.addEventListener('mousedown', startMove);
+                btn.addEventListener('mouseup', stopMove);
+                btn.addEventListener('mouseleave', stopMove);
+                btn.addEventListener('touchstart', startMove, { passive: false });
+                btn.addEventListener('touchend', stopMove);
+            });
+
+            const canvasEl = renderer.domElement;
+
+            canvasEl.addEventListener('mousedown', (e) => {
+                player.isDragging = true;
+                player.prevMouse = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!player.isDragging) return;
+                const dx = e.clientX - player.prevMouse.x;
+                const dy = e.clientY - player.prevMouse.y;
+                player.prevMouse = { x: e.clientX, y: e.clientY };
+
+                player.yaw -= dx * 0.0042;
+                player.pitch = Math.max(-Math.PI / 2.4, Math.min(Math.PI / 2.4, player.pitch - dy * 0.0042));
+            });
+
+            window.addEventListener('mouseup', () => {
+                player.isDragging = false;
+            });
+
+            canvasEl.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    player.isDragging = true;
+                    player.prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            }, { passive: true });
+
+            canvasEl.addEventListener('touchmove', (e) => {
+                if (!player.isDragging || e.touches.length !== 1) return;
+                const dx = e.touches[0].clientX - player.prevMouse.x;
+                const dy = e.touches[0].clientY - player.prevMouse.y;
+                player.prevMouse = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+
+                player.yaw -= dx * 0.0052;
+                player.pitch = Math.max(-Math.PI / 2.4, Math.min(Math.PI / 2.4, player.pitch - dy * 0.0052));
+            }, { passive: true });
+
+            canvasEl.addEventListener('touchend', () => {
+                player.isDragging = false;
+            });
+        }
+
+        // --- MAIN ANIMATION LOOP ---
+        function animate() {
+            requestAnimationFrame(animate);
+
+            const delta = Math.min(clock.getDelta(), 0.1);
+            const elapsed = clock.getElapsedTime();
+            const currentZone = zones[currentZoneIndex];
+
+            // 1. Player Movement & Camera Orientation
+            const forward = new THREE.Vector3(-Math.sin(player.yaw), 0, -Math.cos(player.yaw));
+            const right = new THREE.Vector3(Math.cos(player.yaw), 0, -Math.sin(player.yaw));
+            const moveVec = new THREE.Vector3();
+
+            if (keys.forward) moveVec.add(forward);
+            if (keys.backward) moveVec.sub(forward);
+            if (keys.right) moveVec.add(right);
+            if (keys.left) moveVec.sub(right);
+
+            if (moveVec.lengthSq() > 0) {
+                moveVec.normalize().multiplyScalar(player.speed * delta);
+                const nextX = Math.max(player.bounds.minX, Math.min(player.bounds.maxX, player.position.x + moveVec.x));
+                const nextZ = Math.max(player.bounds.minZ, Math.min(player.bounds.maxZ, player.position.z + moveVec.z));
+
+                let canMove = true;
+                if (currentZone && currentZone.type === 'built-in-master') {
+                    // A. East downhill road & lower factory retaining walls (x > 16.0, z < -64.0)
+                    const currInEastCutout = player.position.x > 16.0 && player.position.z < -64.0;
+                    const nextInEastCutout = nextX > 16.0 && nextZ < -64.0;
+
+                    if (!currInEastCutout && nextInEastCutout) {
+                        const enteringTopOfRoad = player.position.z >= -64.5 && nextX >= 16.2 && nextX <= 22.2;
+                        if (!enteringTopOfRoad) canMove = false;
+                    } else if (currInEastCutout && !nextInEastCutout) {
+                        const exitingTopOfRoad = nextZ >= -64.5 && nextX >= 16.2 && nextX <= 22.2;
+                        if (!exitingTopOfRoad) canMove = false;
+                    } else if (currInEastCutout && nextInEastCutout) {
+                        if (nextZ > -88.0 && (nextX < 16.25 || nextX > 22.15)) canMove = false;
+                        if (nextZ <= -88.0 && (nextX < 16.25 || nextX > 44.0 || nextZ < -104.0)) canMove = false;
+                    }
+
+                    // B. Relocated HR downhill road and lowered rear-yard cutout
+                    const currInLeftCutout = player.position.x < -15.5 && player.position.z > -24.5 && player.position.z < -8.1;
+                    const nextInLeftCutout = nextX < -15.5 && nextZ > -24.5 && nextZ < -8.1;
+
+                    if (!currInLeftCutout && nextInLeftCutout) {
+                        const enteringLeftRoad = player.position.x >= -15.8 && nextZ >= -12.0 && nextZ <= -8.3;
+                        if (!enteringLeftRoad) canMove = false;
+                    } else if (currInLeftCutout && !nextInLeftCutout) {
+                        const exitingLeftRoad = nextX >= -15.8 && nextZ >= -12.0 && nextZ <= -8.3;
+                        if (!exitingLeftRoad) canMove = false;
+                    } else if (currInLeftCutout && nextInLeftCutout) {
+                        if (nextX > -24.2 && (nextZ < -12.0 || nextZ > -8.3)) canMove = false;
+                        if (nextX <= -24.2 && (nextX > -24.5 || nextX < -31.1 || nextZ < -24.4 || nextZ > -8.2)) canMove = false;
+                    }
+                    const currentInsideResidence = player.position.x > 27.8 && player.position.x < 38.9 && player.position.z > -25.5 && player.position.z < -11.5;
+                    const nextInsideResidence = nextX > 27.8 && nextX < 38.9 && nextZ > -25.5 && nextZ < -11.5;
+                    if (!currentInsideResidence && nextInsideResidence) canMove = false;
+                }
+
+                if (canMove) {
+                    player.position.x = nextX;
+                    player.position.z = nextZ;
+                }
+
+                const groundY = currentZone && currentZone.type === 'built-in-master'
+                    ? getGroundElevation(player.position.x, player.position.z)
+                    : 0;
+                player.position.y = groundY + 1.7 + Math.sin(elapsed * 11) * 0.04;
+            } else {
+                const groundY = currentZone && currentZone.type === 'built-in-master'
+                    ? getGroundElevation(player.position.x, player.position.z)
+                    : 0;
+                player.position.y += ((groundY + 1.7) - player.position.y) * 0.18;
+            }
+
+            camera.position.copy(player.position);
+            camera.rotation.y = player.yaw;
+            camera.rotation.x = player.pitch;
+
+            // 2. Built-In Master Campus Interactions (Auto-Gate Barriers, Fingerprint Box, Waving Flags & Waterfall)
+            const fpBtn = document.getElementById('btn-scan-fingerprint');
+            if (currentZone && currentZone.type === 'built-in-master') {
+                if (player.position.z < 11.0 && player.position.z > -8.0 && Math.abs(player.position.x) < 11.0) {
+                    gateBarriers.targetAngle = Math.PI / 2.15;
+                } else if (!gateBarriers.isOpen) {
+                    gateBarriers.targetAngle = 0;
+                }
+
+                if (gateBarriers.left && gateBarriers.right) {
+                    gateBarriers.left.rotation.z += (gateBarriers.targetAngle - gateBarriers.left.rotation.z) * 0.08;
+                    gateBarriers.right.rotation.z += (-gateBarriers.targetAngle - gateBarriers.right.rotation.z) * 0.08;
+                }
+
+                // Auto-update HUD location label as player walks smoothly across the 5 photo landmarks
+                const zPos = player.position.z;
+                const xPos = player.position.x;
+                const labelEl = document.getElementById('current-zone-label');
+                if (xPos > 16.0 && zPos < -64.0) {
+                    labelEl.textContent = '6. East Downhill Road & 3-Floor Factory';
+                } else if (xPos < -15.5 && zPos > -24.5 && zPos < -8.1) {
+                    labelEl.textContent = '3. HR Left Downhill Covered Hut Road';
+                } else if (zPos > -4.0) {
+                    labelEl.textContent = '1. Main Gate & DFCC ATM (Photo 1)';
+                } else if (zPos > -25.0) {
+                    labelEl.textContent = '2. Inside Gate, HR & Fingerprint Box (Photo 2)';
+                } else if (zPos > -40.0) {
+                    labelEl.textContent = '4. Mid-Courtyard Carport & 3F Factory (Photo 3)';
+                } else if (zPos > -63.0) {
+                    labelEl.textContent = '5. Galpaditenne Waterfall Pond (Photo 4)';
+                } else {
+                    labelEl.textContent = '7. 3-Floor Main Head Office & Lobby (Photo 5)';
+                }
+
+                const distToFp = player.position.distanceTo(fingerprintTerminal.position);
+                if (distToFp < 5.0) {
+                    fpBtn.classList.remove('hidden');
+                } else {
+                    fpBtn.classList.add('hidden');
+                }
+
+                wavingFlags.forEach(({ mesh, offset }) => {
+                    mesh.rotation.y = Math.sin(elapsed * 3.2 + offset) * 0.16;
+                });
+
+                if (waterfallFlowTex) {
+                    waterfallFlowTex.offset.y -= delta * 0.55;
+                }
+                if (pondWaterSurface) {
+                    pondWaterSurface.position.y = 0.64 + Math.sin(elapsed * 3.5) * 0.008;
+                    const waterPositions = pondWaterSurface.geometry.attributes.position;
+                    for (let v = 0; v < waterPositions.count; v++) {
+                        const wx = waterPositions.getX(v);
+                        const wz = waterPositions.getY(v);
+                        waterPositions.setZ(v, 0.018 * Math.sin(wx * 2.1 + elapsed * 1.6) + 0.012 * Math.sin(wz * 3.2 - elapsed * 1.15 + wx));
+                    }
+                    waterPositions.needsUpdate = true;
+                    pondWaterSurface.geometry.computeVertexNormals();
+                }
+                pondRipples.forEach(({ mesh, offset }) => {
+                    const phase = ((elapsed * 0.26 + offset / 3.5) % 1);
+                    const scale = 0.65 + phase * 2.5;
+                    mesh.scale.set(scale, scale, scale);
+                    mesh.material.opacity = 0.28 * (1 - phase);
+                });
+                fountainJets.forEach(({ mesh, offset }) => {
+                    const pulse = 0.92 + Math.sin(elapsed * 6.0 + offset) * 0.12;
+                    mesh.scale.set(pulse, 0.95 + Math.cos(elapsed * 5.0 + offset) * 0.14, pulse);
+                });
+            } else {
+                fpBtn.classList.add('hidden');
+            }
+
+            // 3. Portal Animations & Proximity Teleportation
+            for (let i = 0; i < portalMeshes.length; i++) {
+                const p = portalMeshes[i];
+                p.ring.rotation.z = elapsed * 1.4;
+                const scalePulse = 1 + Math.sin(elapsed * 3.5) * 0.04;
+                p.ring.scale.set(scalePulse, scalePulse, 1);
+
+                const dist = new THREE.Vector2(player.position.x - p.position.x, player.position.z - p.position.z).length();
+                if (dist < 1.65) {
+                    const targetIdx = p.targetZoneIndex;
+                    showToast(`Entering ${zones[targetIdx].name}...`);
+                    loadZone(targetIdx);
+                    break;
+                }
+            }
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
