@@ -1491,12 +1491,12 @@
             }
 
             // Assembly hut stage (raised timber podium east of HR)
-            if (z >= -30.7 && z <= -26.3) {
-                if (x >= -8.25 && x <= -4.85) {
+            if (z >= -30.2 && z <= -25.8) {
+                if (x >= -14.6 && x <= -11.4) {
                     return 0.42;
                 }
-                if (x > -4.85 && x <= -4.0) {
-                    return 0.42 * ((-4.0 - x) / 0.85);
+                if (x > -11.4 && x <= -10.55) {
+                    return 0.42 * ((-10.55 - x) / 0.85);
                 }
             }
             // Factory top-floor landing (external stair beside the new main door)
@@ -2546,8 +2546,8 @@
                 apron.receiveShadow = true;
                 group.add(apron);
 
-                const walkway = new THREE.Mesh(new THREE.BoxGeometry(10.5, 0.08, 3.0), apronMat);
-                walkway.position.set(-11.8, 0.05, -27.2);
+                const walkway = new THREE.Mesh(new THREE.BoxGeometry(6.6, 0.08, 3.2), apronMat);
+                walkway.position.set(-14.2, 0.05, -27.0);
                 walkway.receiveShadow = true;
                 group.add(walkway);
             }
@@ -2557,7 +2557,7 @@
             // =========================================================================
             {
                 const asGroup = new THREE.Group();
-                asGroup.position.set(-6.5, 0, -28.5);
+                asGroup.position.set(-13.0, 0, -28.0); // tucked against the HR north-east corner, beside the device room
 
                 const asSteelMat = new THREE.MeshStandardMaterial({ color: 0x223244, metalness: 0.6, roughness: 0.35 });
                 const asDeckMat = new THREE.MeshStandardMaterial({ map: createStageDeckTexture(), roughness: 0.62, metalness: 0.05 });
@@ -2604,15 +2604,15 @@
                 // Three access steps on the courtyard (east) side
                 for (let s = 0; s < 3; s++) {
                     const stepH = 0.14 * (s + 1);
-                    const stepX = 1.6 + 0.28 * (1.5 - s);
-                    const step = new THREE.Mesh(new THREE.BoxGeometry(0.3, stepH, 2.4), asPlinthMat);
+                    const stepX = 1.62 + 0.30 * (2 - s);
+                    const step = new THREE.Mesh(new THREE.BoxGeometry(0.32, stepH, 2.4), asPlinthMat);
                     step.position.set(stepX, stepH / 2, 0);
                     step.castShadow = true;
                     step.receiveShadow = true;
                     asGroup.add(step);
 
-                    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 2.4), asTrimMat);
-                    nose.position.set(stepX + 0.15, stepH + 0.005, 0);
+                    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.03, 2.4), asTrimMat);
+                    nose.position.set(stepX + 0.16, stepH + 0.005, 0);
                     asGroup.add(nose);
                 }
 
@@ -2779,18 +2779,18 @@
 
                 // Paved plaza under and around the relocated assembly hut
                 const asPlazaBorder = new THREE.Mesh(
-                    new THREE.BoxGeometry(11.2, 0.07, 10.8),
+                    new THREE.BoxGeometry(9.4, 0.07, 9.2),
                     new THREE.MeshStandardMaterial({ color: 0x8d8779, roughness: 0.9 })
                 );
-                asPlazaBorder.position.set(0, 0.035, 0);
+                asPlazaBorder.position.set(0.7, 0.035, -0.4);
                 asPlazaBorder.receiveShadow = true;
                 asGroup.add(asPlazaBorder);
 
                 const asPlaza = new THREE.Mesh(
-                    new THREE.BoxGeometry(11.0, 0.08, 10.6),
+                    new THREE.BoxGeometry(9.2, 0.08, 9.0),
                     new THREE.MeshStandardMaterial({ map: createPlazaPaverTexture(), roughness: 0.88 })
                 );
-                asPlaza.position.set(0, 0.055, 0);
+                asPlaza.position.set(0.7, 0.055, -0.4);
                 asPlaza.receiveShadow = true;
                 asGroup.add(asPlaza);
             }
