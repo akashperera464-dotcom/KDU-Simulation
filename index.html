@@ -207,6 +207,10 @@
         let portalMeshes = [];
         let gateBarriers = { left: null, right: null, isOpen: false, targetAngle: 0 };
         let fingerprintTerminal = { position: new THREE.Vector3(-16.4, 1.38, -15.2), screenMesh: null, scanned: false };
+        let attendanceKiosk = null;
+        let attendanceLog = [];
+        let attendancePanelTexture = null;
+        const attendancePanelCanvas = document.createElement('canvas');
         let wavingFlags = [];
         let waterfallFlowTex = null;
         let fountainJets = [];
@@ -867,6 +871,246 @@
             const tex = new THREE.CanvasTexture(canvas);
             tex.needsUpdate = true;
             return tex;
+        }
+
+        // --- ATTENDANCE KIOSK: PROCEDURAL DISPLAY TEXTURES ---
+        function createAttendanceIdCardTexture(name, role, employeeId) {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 320;
+            const ctx = canvas.getContext('2d');
+
+            const bg = ctx.createLinearGradient(0, 0, 512, 320);
+            bg.addColorStop(0, '#0f2f4a');
+            bg.addColorStop(0.55, '#134e6b');
+            bg.addColorStop(1, '#0b2237');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, 512, 320);
+
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.55)';
+            ctx.lineWidth = 4;
+            ctx.strokeRect(6, 6, 500, 308);
+
+            ctx.fillStyle = '#22d3ee';
+            ctx.fillRect(0, 0, 512, 8);
+            ctx.fillRect(0, 312, 512, 8);
+
+            ctx.fillStyle = 'rgba(34, 211, 238, 0.12)';
+            ctx.beginPath();
+            ctx.arc(430, 60, 120, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = 'rgba(34, 211, 238, 0.09)';
+            ctx.beginPath();
+            ctx.arc(70, 300, 100, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.fillStyle = '#67e8f9';
+            ctx.font = 'bold 20px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('K.D.U. GROUP', 28, 48);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = 'bold 12px Inter, sans-serif';
+            ctx.fillText('FACTORY ATTENDANCE ID', 28, 68);
+
+            // Glowing fingerprint emblem
+            const ring = ctx.createRadialGradient(86, 162, 4, 86, 162, 58);
+            ring.addColorStop(0, 'rgba(52, 211, 153, 0.85)');
+            ring.addColorStop(0.65, 'rgba(16, 185, 129, 0.25)');
+            ring.addColorStop(1, 'rgba(16, 185, 129, 0)');
+            ctx.fillStyle = ring;
+            ctx.beginPath();
+            ctx.arc(86, 162, 58, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.strokeStyle = '#34d399';
+            ctx.lineWidth = 4;
+            [24, 34, 44].forEach((r, i) => {
+                ctx.beginPath();
+                ctx.arc(86, 158, r, Math.PI * 1.1, Math.PI * 1.9);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(86, 158, r, Math.PI * 0.14, Math.PI * 0.86);
+                ctx.stroke();
+            });
+            ctx.fillStyle = '#6ee7b7';
+            ctx.fillRect(80, 145, 12, 32);
+            ctx.fillRect(72, 152, 6, 18);
+            ctx.fillRect(94, 152, 6, 18);
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 30px Inter, sans-serif';
+            ctx.fillText(name || 'FACTORY EMPLOYEE', 158, 156);
+            ctx.fillStyle = '#bae6fd';
+            ctx.font = 'bold 19px Inter, sans-serif';
+            ctx.fillText(role || 'Production Wing', 158, 184);
+            ctx.fillStyle = '#7dd3fc';
+            ctx.font = '15px Inter, sans-serif';
+            ctx.fillText('ID  ' + (employeeId || 'KDU-1042'), 158, 210);
+
+            ctx.fillStyle = 'rgba(248, 250, 252, 0.1)';
+            ctx.fillRect(158, 234, 326, 52);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.font = '13px Inter, sans-serif';
+            ctx.fillText('Presented at the Factory Attendance Checkpoint', 172, 258);
+            ctx.fillStyle = '#facc15';
+            ctx.fillText('Verified biometric attendance terminal', 172, 276);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createKioskPanelTexture(state) {
+            const canvas = attendancePanelCanvas;
+            canvas.width = 1024;
+            canvas.height = 640;
+            const ctx = canvas.getContext('2d');
+            const s = state || {};
+
+            const bg = ctx.createLinearGradient(0, 0, 0, 640);
+            bg.addColorStop(0, '#0b1b2b');
+            bg.addColorStop(0.55, '#0f2942');
+            bg.addColorStop(1, '#081521');
+            ctx.fillStyle = bg;
+            ctx.fillRect(0, 0, 1024, 640);
+
+            // Grid texture
+            ctx.strokeStyle = 'rgba(56, 189, 248, 0.07)';
+            ctx.lineWidth = 1;
+            for (let gx = 0; gx < 1024; gx += 32) { ctx.beginPath(); ctx.moveTo(gx, 0); ctx.lineTo(gx, 640); ctx.stroke(); }
+            for (let gy = 0; gy < 640; gy += 32) { ctx.beginPath(); ctx.moveTo(0, gy); ctx.lineTo(1024, gy); ctx.stroke(); }
+
+            // Header
+            const head = ctx.createLinearGradient(0, 0, 1024, 0);
+            head.addColorStop(0, '#1d4ed8');
+            head.addColorStop(1, '#0891b2');
+            ctx.fillStyle = head;
+            ctx.fillRect(0, 0, 1024, 108);
+            ctx.fillStyle = 'rgba(255,255,255,0.16)';
+            ctx.fillRect(0, 104, 1024, 4);
+
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 34px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('ATTENDANCE TERMINAL', 32, 52);
+            ctx.fillStyle = '#bae6fd';
+            ctx.font = '17px Inter, sans-serif';
+            ctx.fillText('K.D.U. PRODUCTION WING  •  FACTORY MAIN ENTRANCE', 32, 80);
+
+            const now = new Date();
+            const clock = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const dateText = now.toLocaleDateString([], { weekday: 'short', day: '2-digit', month: 'short', year: 'numeric' });
+            ctx.textAlign = 'right';
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 38px Inter, sans-serif';
+            ctx.fillText(clock, 992, 52);
+            ctx.fillStyle = '#bae6fd';
+            ctx.font = '16px Inter, sans-serif';
+            ctx.fillText(dateText, 992, 80);
+
+            // Status badge
+            const statusColor = s.scanned ? '#10b981' : '#f59e0b';
+            const statusText = s.scanned ? 'PRESENT • MARKED' : 'STANDBY • VERIFY';
+            ctx.fillStyle = 'rgba(255,255,255,0.06)';
+            ctx.fillRect(0, 108, 1024, 52);
+            ctx.fillStyle = statusColor;
+            ctx.beginPath();
+            ctx.arc(36, 134, 8, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.fillStyle = statusColor;
+            ctx.font = 'bold 20px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(statusText, 56, 141);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '16px Inter, sans-serif';
+            ctx.textAlign = 'right';
+            ctx.fillText(s.user ? s.user.name : 'Place your finger on the sensor', 992, 141);
+
+            // Fingerprint panel
+            ctx.fillStyle = 'rgba(2, 132, 199, 0.16)';
+            ctx.strokeStyle = statusColor;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(210, 380, 152, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.stroke();
+
+            const glow = ctx.createRadialGradient(210, 380, 8, 210, 380, 170);
+            glow.addColorStop(0, s.scanned ? 'rgba(52, 211, 153, 0.5)' : 'rgba(34, 211, 238, 0.32)');
+            glow.addColorStop(1, 'rgba(34, 211, 238, 0)');
+            ctx.fillStyle = glow;
+            ctx.beginPath();
+            ctx.arc(210, 380, 170, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.strokeStyle = s.scanned ? '#6ee7b7' : '#67e8f9';
+            ctx.lineWidth = 7;
+            ctx.lineCap = 'round';
+            for (let r = 0; r < 5; r++) {
+                ctx.beginPath();
+                ctx.arc(210, 336, 42 + r * 18, Math.PI * 1.12, Math.PI * 1.88);
+                ctx.stroke();
+                ctx.beginPath();
+                ctx.arc(210, 336, 46 + r * 17, Math.PI * 0.16, Math.PI * 0.84);
+                ctx.stroke();
+            }
+            ctx.beginPath();
+            ctx.moveTo(210, 300);
+            ctx.lineTo(210, 352);
+            ctx.moveTo(186, 316);
+            ctx.lineTo(186, 344);
+            ctx.moveTo(234, 316);
+            ctx.lineTo(234, 344);
+            ctx.stroke();
+
+            // Right-hand details
+            ctx.fillStyle = '#e2e8f0';
+            ctx.textAlign = 'left';
+            ctx.font = 'bold 24px Inter, sans-serif';
+            ctx.fillText(s.user ? s.user.name : 'WAITING FOR SCAN', 400, 250);
+
+            const rows = [
+              ['SHIFT', 'Morning  •  07:00 – 15:00'],
+              ['DEPARTMENT', s.user ? s.user.role : 'Production Wing'],
+              ['CHECK-IN', s.scanned ? (s.time || clock) : '— : —'],
+              ['ACCESS', s.scanned ? 'TOP FLOOR GRANTED' : 'PENDING']
+            ];
+            rows.forEach((row, i) => {
+              const y = 300 + i * 46;
+              ctx.fillStyle = 'rgba(148, 163, 184, 0.12)';
+              ctx.fillRect(396, y - 26, 596, 40);
+              ctx.fillStyle = '#7dd3fc';
+              ctx.font = 'bold 15px Inter, sans-serif';
+              ctx.fillText(row[0], 412, y);
+              ctx.fillStyle = '#f1f5f9';
+              ctx.font = '17px Inter, sans-serif';
+              ctx.fillText(row[1], 560, y);
+            });
+
+            // Footer instructions
+            ctx.fillStyle = 'rgba(15, 42, 66, 0.94)';
+            ctx.fillRect(0, 548, 1024, 92);
+            ctx.fillStyle = '#facc15';
+            ctx.fillRect(0, 548, 1024, 4);
+            ctx.fillStyle = '#fef9c3';
+            ctx.font = 'bold 21px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText(s.scanned ? 'ATTENDANCE RECORDED  ✓  THANK YOU' : 'PRESS  E  OR CLICK THE GREEN BUTTON TO SCAN', 32, 588);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '16px Inter, sans-serif';
+            ctx.fillText(s.scanned ? 'Have a productive shift at the K.D.U. factory.' : 'Contact HR for enrolment or missed scans.', 32, 616);
+
+            ctx.fillStyle = s.scanned ? '#34d399' : '#38bdf8';
+            ctx.textAlign = 'right';
+            ctx.font = 'bold 16px Inter, sans-serif';
+            ctx.fillText('K.D.U. FACTORY  •  HR ATTENDANCE SYSTEM', 992, 588);
+            ctx.fillStyle = '#64748b';
+            ctx.fillText('BIOMETRIC CHECKPOINT 01', 992, 616);
+
+            if (!attendancePanelTexture) {
+                attendancePanelTexture = new THREE.CanvasTexture(canvas);
+            }
+            attendancePanelTexture.needsUpdate = true;
+            return attendancePanelTexture;
         }
 
         // --- CREATE BUILT-IN PHOTO-ACCURATE WAYPOINT ZONES ---
@@ -1582,6 +1826,233 @@
             fpPad.rotation.y = Math.PI / 2;
             fpGroup.add(fpPad);
             group.add(fpGroup);
+
+            // =========================================================================
+            // ATTENDANCE KIOSK — FINGERPRINT MARK BOX (Courtyard between gate & HR hut)
+            // Positioned on the open tarmac in front of the HR covered walkway hut,
+            // beside the entrance rain tree (the green-crossed spot in the photo).
+            // =========================================================================
+            const atKioskGroup = new THREE.Group();
+            atKioskGroup.position.set(-12.9, 0, -5.0);
+            atKioskGroup.rotation.y = Math.PI / 2; // panel front faces east toward the gate
+
+            const kioskSteelMat = new THREE.MeshStandardMaterial({ color: 0x243244, metalness: 0.62, roughness: 0.34 });
+            const kioskBodyMat = new THREE.MeshStandardMaterial({ color: 0xeef2f7, metalness: 0.35, roughness: 0.4 });
+            const kioskInsetMat = new THREE.MeshStandardMaterial({ color: 0x0d1a2b, metalness: 0.4, roughness: 0.45 });
+            const kioskGlowGreen = new THREE.MeshBasicMaterial({ color: 0x34d399 });
+            const kioskGlowCyan = new THREE.MeshBasicMaterial({ color: 0x38bdf8 });
+
+            // Brushed-metal plinth
+            const atKioskBase = new THREE.Mesh(new THREE.BoxGeometry(3.0, 0.22, 1.9), kioskSteelMat);
+            atKioskBase.position.set(0, 0.11, 0.1);
+            atKioskBase.castShadow = true;
+            atKioskBase.receiveShadow = true;
+            atKioskGroup.add(atKioskBase);
+
+            const atKioskBaseTrim = new THREE.Mesh(new THREE.BoxGeometry(3.08, 0.05, 1.98), silverPanelMat);
+            atKioskBaseTrim.position.set(0, 0.235, 0.1);
+            atKioskGroup.add(atKioskBaseTrim);
+
+            // Main body: slim tower with a dark inset console
+            const atKioskBody = new THREE.Mesh(new THREE.BoxGeometry(2.05, 2.35, 0.72), kioskBodyMat);
+            atKioskBody.position.set(0, 1.4, -0.16);
+            atKioskBody.castShadow = true;
+            atKioskBody.receiveShadow = true;
+            atKioskGroup.add(atKioskBody);
+
+            const atKioskConsole = new THREE.Mesh(new THREE.BoxGeometry(1.86, 1.24, 0.16), kioskInsetMat);
+            atKioskConsole.position.set(0, 1.62, 0.225);
+            atKioskGroup.add(atKioskConsole);
+
+            // Large glowing attendance display
+            const atKioskPanel = new THREE.Mesh(
+                new THREE.PlaneGeometry(1.7, 1.06),
+                new THREE.MeshBasicMaterial({ map: createKioskPanelTexture({}) })
+            );
+            atKioskPanel.position.set(0, 1.62, 0.315);
+            atKioskGroup.add(atKioskPanel);
+            attendancePanelTexture = atKioskPanel.material.map;
+
+            // Cyan LED edge strips around the display
+            [-1, 1].forEach(side => {
+                const edge = new THREE.Mesh(new THREE.BoxGeometry(0.035, 1.12, 0.035), kioskGlowCyan);
+                edge.position.set(side * 0.885, 1.62, 0.31);
+                atKioskGroup.add(edge);
+            });
+            const topEdge = new THREE.Mesh(new THREE.BoxGeometry(1.79, 0.035, 0.035), kioskGlowCyan);
+            topEdge.position.set(0, 2.195, 0.31);
+            atKioskGroup.add(topEdge);
+            const bottomEdge = new THREE.Mesh(new THREE.BoxGeometry(1.79, 0.035, 0.035), kioskGlowCyan);
+            bottomEdge.position.set(0, 1.045, 0.31);
+            atKioskGroup.add(bottomEdge);
+
+            // Angled fingerprint reader shelf
+            const atKioskShelf = new THREE.Mesh(new THREE.BoxGeometry(1.12, 0.11, 0.58), kioskSteelMat);
+            atKioskShelf.position.set(0, 0.98, 0.52);
+            atKioskShelf.rotation.x = -0.32;
+            atKioskShelf.castShadow = true;
+            atKioskGroup.add(atKioskShelf);
+
+            const atKioskSensorBed = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.05, 0.36), kioskInsetMat);
+            atKioskSensorBed.position.set(0, 1.045, 0.55);
+            atKioskSensorBed.rotation.x = -0.32;
+            atKioskGroup.add(atKioskSensorBed);
+
+            const atKioskSensor = new THREE.Mesh(
+                new THREE.CircleGeometry(0.155, 28),
+                new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.92 })
+            );
+            atKioskSensor.position.set(0, 1.078, 0.6);
+            atKioskSensor.rotation.x = -0.32 - Math.PI / 2;
+            atKioskGroup.add(atKioskSensor);
+
+            const atKioskSensorRing = new THREE.Mesh(
+                new THREE.TorusGeometry(0.215, 0.018, 10, 40),
+                new THREE.MeshBasicMaterial({ color: 0x6ee7b7 })
+            );
+            atKioskSensorRing.position.set(0, 1.08, 0.6);
+            atKioskSensorRing.rotation.x = -0.32 + Math.PI / 2;
+            atKioskGroup.add(atKioskSensorRing);
+
+            const atKioskSensorLabelTex = createSignTexture('PLACE  FINGER', '#052e2b', '#6ee7b7', 256, 56, 24);
+            const atKioskSensorLabel = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.5, 0.11),
+                new THREE.MeshBasicMaterial({ map: atKioskSensorLabelTex, transparent: true })
+            );
+            atKioskSensorLabel.position.set(0, 0.9, 0.62);
+            atKioskSensorLabel.rotation.x = -0.32;
+            atKioskGroup.add(atKioskSensorLabel);
+
+            // Physical green scan button beneath the sensor
+            const atKioskButton = new THREE.Mesh(
+                new THREE.BoxGeometry(0.62, 0.1, 0.22),
+                new THREE.MeshStandardMaterial({ color: 0x059669, emissive: 0x10b981, emissiveIntensity: 0.4, roughness: 0.35 })
+            );
+            atKioskButton.position.set(0, 0.86, 0.58);
+            atKioskButton.rotation.x = -0.32;
+            atKioskGroup.add(atKioskButton);
+
+            const atKioskButtonRing = new THREE.Mesh(
+                new THREE.RingGeometry(0.06, 0.09, 20),
+                new THREE.MeshBasicMaterial({ color: 0xecfdf5 })
+            );
+            atKioskButtonRing.position.set(0, 0.915, 0.575);
+            atKioskButtonRing.rotation.x = -Math.PI / 2 - 0.32;
+            atKioskGroup.add(atKioskButtonRing);
+
+            // Side status light / speaker
+            const atKioskStatus = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.1, 0.05), kioskGlowGreen);
+            atKioskStatus.position.set(0.75, 0.9, 0.25);
+            atKioskGroup.add(atKioskStatus);
+            const atKioskStatusBar = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.3, 0.04), kioskGlowCyan);
+            atKioskStatusBar.position.set(-0.78, 0.86, 0.22);
+            atKioskGroup.add(atKioskStatusBar);
+
+            // Header sign board with logo plate
+            const atKioskHeader = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.55, 0.22), kioskSteelMat);
+            atKioskHeader.position.set(0, 3.05, -0.02);
+            atKioskHeader.castShadow = true;
+            atKioskGroup.add(atKioskHeader);
+
+            const atKioskHeaderTex = createSignTexture('ATTENDANCE MARK  •  FINGERPRINT', '#0b3a67', '#a7f3d0', 640, 64, 25);
+            const atKioskHeaderSign = new THREE.Mesh(
+                new THREE.PlaneGeometry(2.48, 0.44),
+                new THREE.MeshBasicMaterial({ map: atKioskHeaderTex })
+            );
+            atKioskHeaderSign.position.set(0, 3.05, 0.1);
+            atKioskGroup.add(atKioskHeaderSign);
+
+            const atKioskHeaderBackTex = createSignTexture('K.D.U. GROUP  •  HR ATTENDANCE', '#0b3a67', '#e0f2fe', 640, 64, 25);
+            const atKioskHeaderBack = new THREE.Mesh(
+                new THREE.PlaneGeometry(2.48, 0.44),
+                new THREE.MeshBasicMaterial({ map: atKioskHeaderBackTex })
+            );
+            atKioskHeaderBack.position.set(0, 3.05, -0.14);
+            atKioskHeaderBack.rotation.y = Math.PI;
+            atKioskGroup.add(atKioskHeaderBack);
+
+            // Leaf-pattern green canopy with steel posts
+            const atKioskRoof = new THREE.Mesh(new THREE.BoxGeometry(3.5, 0.14, 2.35), blueRoofMat);
+            atKioskRoof.position.set(0, 3.45, 0.02);
+            atKioskRoof.castShadow = true;
+            atKioskGroup.add(atKioskRoof);
+
+            const atKioskRoofTrim = new THREE.Mesh(new THREE.BoxGeometry(3.56, 0.06, 2.41), silverPanelMat);
+            atKioskRoofTrim.position.set(0, 3.525, 0.02);
+            atKioskGroup.add(atKioskRoofTrim);
+
+            [-1.55, 1.55].forEach(px => {
+                const atKioskPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.07, 3.3, 10), kioskSteelMat);
+                atKioskPost.position.set(px, 1.65, 0.72);
+                atKioskPost.castShadow = true;
+                atKioskGroup.add(atKioskPost);
+                const atKioskPostBase = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.12, 10), kioskSteelMat);
+                atKioskPostBase.position.set(px, 0.06, 0.72);
+                atKioskGroup.add(atKioskPostBase);
+            });
+
+            const atKioskLight = new THREE.PointLight(0x67e8f9, 0.85, 7);
+            atKioskLight.position.set(0, 2.85, 0.7);
+            atKioskGroup.add(atKioskLight);
+
+            const atKioskDownlight = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.04, 0.14), new THREE.MeshBasicMaterial({ color: 0xe0f2fe }));
+            atKioskDownlight.position.set(0, 3.36, 0.62);
+            atKioskGroup.add(atKioskDownlight);
+
+            // Employee badge display beside the console
+            const atKioskBadgeFrame = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.66, 1.0), kioskInsetMat);
+            atKioskBadgeFrame.position.set(1.1, 1.5, -0.05);
+            atKioskGroup.add(atKioskBadgeFrame);
+            if (!attendanceKiosk) attendanceKiosk = {};
+            const atKioskBadge = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.88, 0.55),
+                new THREE.MeshBasicMaterial({ map: createAttendanceIdCardTexture('FACTORY EMPLOYEE', 'Production Wing', 'KDU-1042') })
+            );
+            atKioskBadge.position.set(1.16, 1.5, -0.05);
+            atKioskBadge.rotation.y = Math.PI / 2;
+            atKioskGroup.add(atKioskBadge);
+
+            // Ground guide markings and soft floor glow
+            const atKioskPad = new THREE.Mesh(
+                new THREE.BoxGeometry(3.4, 0.03, 2.7),
+                new THREE.MeshStandardMaterial({ color: 0xaab4bf, roughness: 0.9 })
+            );
+            atKioskPad.position.set(0, 0.015, 0.15);
+            atKioskPad.receiveShadow = true;
+            atKioskGroup.add(atKioskPad);
+
+            const atKioskFloorRing = new THREE.Mesh(
+                new THREE.RingGeometry(0.72, 0.86, 40),
+                new THREE.MeshBasicMaterial({ color: 0x34d399, transparent: true, opacity: 0.5, side: THREE.DoubleSide })
+            );
+            atKioskFloorRing.position.set(0, 0.045, 1.12);
+            atKioskFloorRing.rotation.x = -Math.PI / 2;
+            atKioskGroup.add(atKioskFloorRing);
+
+            const atKioskFloorArrow = new THREE.Mesh(
+                new THREE.PlaneGeometry(0.38, 0.7),
+                new THREE.MeshBasicMaterial({ color: 0x6ee7b7, transparent: true, opacity: 0.75 })
+            );
+            atKioskFloorArrow.position.set(0, 0.045, 1.75);
+            atKioskFloorArrow.rotation.x = -Math.PI / 2;
+            atKioskFloorArrow.rotation.z = Math.PI;
+            atKioskGroup.add(atKioskFloorArrow);
+
+            group.add(atKioskGroup);
+
+            attendanceKiosk = {
+                group: atKioskGroup,
+                position: new THREE.Vector3(-12.9, 1.35, -5.0),
+                panel: atKioskPanel,
+                badge: atKioskBadge,
+                sensor: atKioskSensor,
+                sensorRing: atKioskSensorRing,
+                light: atKioskLight,
+                floorRing: atKioskFloorRing,
+                scanned: false
+            };
+            attendanceLog = [];
+
 
             // =========================================================================
             // LEFT-OF-HR DOWNWARD ROAD -> REAR & UPPER 3-FLOOR FACTORY WING + HUT ROOF
@@ -3082,6 +3553,56 @@
         function triggerFingerprintScan() {
             const now = new Date();
             const timeStr = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const atKiosk = attendanceKiosk &&
+                player.position.distanceTo(attendanceKiosk.position) < 4.5 &&
+                (!fingerprintTerminal.scanned || player.position.distanceTo(attendanceKiosk.position) <= player.position.distanceTo(fingerprintTerminal.position));
+
+            if (atKiosk) {
+                const employees = [
+                    { name: 'Nimal Perera', role: 'Production Supervisor', employeeId: 'KDU-1042' },
+                    { name: 'Sanduni Fernando', role: 'Quality Controller', employeeId: 'KDU-1077' },
+                    { name: 'Kasun Jayasinghe', role: 'Machine Operator', employeeId: 'KDU-1123' },
+                    { name: 'Dilhani Silva', role: 'Packing Wing', employeeId: 'KDU-1158' }
+                ];
+                const user = employees[Math.floor(Math.random() * employees.length)];
+                const stamp = now.toLocaleDateString([], { day: '2-digit', month: 'short', year: 'numeric' });
+
+                attendanceKiosk.scanned = true;
+                attendanceLog.unshift({ name: user.name, role: user.role, employeeId: user.employeeId, time: timeStr, date: stamp });
+
+                createKioskPanelTexture({ user: user, scanned: true, time: timeStr });
+                if (attendanceKiosk.panel) {
+                    attendanceKiosk.panel.material.map = attendancePanelTexture;
+                    attendanceKiosk.panel.material.needsUpdate = true;
+                }
+                if (attendanceKiosk.badge) {
+                    attendanceKiosk.badge.material.map = createAttendanceIdCardTexture(user.name, user.role, user.employeeId);
+                    attendanceKiosk.badge.material.needsUpdate = true;
+                }
+                if (attendanceKiosk.sensor) attendanceKiosk.sensor.material.color.setHex(0x6ee7b7);
+                if (attendanceKiosk.light) attendanceKiosk.light.color.setHex(0x6ee7b7);
+                if (attendanceKiosk.sensorRing) attendanceKiosk.sensorRing.material.color.setHex(0xa7f3d0);
+
+                try {
+                    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+                    [880, 1174].forEach((freq, i) => {
+                        const osc = audioCtx.createOscillator();
+                        const gain = audioCtx.createGain();
+                        osc.type = 'sine';
+                        osc.frequency.setValueAtTime(freq, audioCtx.currentTime + i * 0.13);
+                        gain.gain.setValueAtTime(0.12, audioCtx.currentTime + i * 0.13);
+                        gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.3 + i * 0.13);
+                        osc.connect(gain);
+                        gain.connect(audioCtx.destination);
+                        osc.start(audioCtx.currentTime + i * 0.13);
+                        osc.stop(audioCtx.currentTime + 0.3 + i * 0.13);
+                    });
+                } catch (e) {}
+
+                showToast(`Attendance marked at the Factory Checkpoint — ${user.name} (${timeStr}) ✓`);
+                return;
+            }
+
             fingerprintTerminal.scanned = true;
 
             if (fingerprintTerminal.screenMesh) {
@@ -3231,7 +3752,8 @@
                         break;
                     case 'KeyE':
                         if (zones[currentZoneIndex].type === 'built-in-master' &&
-                            player.position.distanceTo(fingerprintTerminal.position) < 4.5) {
+                            (player.position.distanceTo(fingerprintTerminal.position) < 4.5 ||
+                             (attendanceKiosk && player.position.distanceTo(attendanceKiosk.position) < 4.5))) {
                             triggerFingerprintScan();
                         }
                         break;
@@ -3433,10 +3955,31 @@
                 }
 
                 const distToFp = player.position.distanceTo(fingerprintTerminal.position);
-                if (distToFp < 5.0) {
+                const distToKiosk = attendanceKiosk ? player.position.distanceTo(attendanceKiosk.position) : Infinity;
+                if (distToFp < 5.0 || distToKiosk < 5.0) {
                     fpBtn.classList.remove('hidden');
                 } else {
                     fpBtn.classList.add('hidden');
+                }
+
+                // Living kiosk: gentle sensor pulse and canopy light breathing
+                if (attendanceKiosk) {
+                    const pulse = 1 + Math.sin(elapsed * 3.4) * 0.06;
+                    if (attendanceKiosk.sensor) attendanceKiosk.sensor.scale.set(pulse, pulse, 1);
+                    if (attendanceKiosk.sensorRing) {
+                        const ringPulse = 1 + Math.sin(elapsed * 2.6) * 0.1;
+                        attendanceKiosk.sensorRing.scale.set(ringPulse, ringPulse, 1);
+                        attendanceKiosk.sensorRing.material.opacity = 0.55 + Math.sin(elapsed * 2.6) * 0.25;
+                    }
+                    if (attendanceKiosk.floorRing) {
+                        attendanceKiosk.floorRing.material.opacity = 0.34 + Math.sin(elapsed * 2.2) * 0.14;
+                    }
+                        if (attendanceKiosk.light) {
+                        attendanceKiosk.light.intensity = 0.75 + Math.sin(elapsed * 1.9) * 0.16;
+                    }
+                    if (attendanceKiosk.panel) {
+                        attendanceKiosk.panel.material.opacity = 1;
+                    }
                 }
 
                 wavingFlags.forEach(({ mesh, offset }) => {
