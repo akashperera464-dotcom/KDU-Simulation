@@ -752,6 +752,123 @@
             return tex;
         }
 
+        function createFactoryLobbyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 768;
+            canvas.height = 576;
+            const ctx = canvas.getContext('2d');
+
+            const wallGrad = ctx.createLinearGradient(0, 0, 0, 576);
+            wallGrad.addColorStop(0, '#243447');
+            wallGrad.addColorStop(0.62, '#172033');
+            wallGrad.addColorStop(1, '#0b1220');
+            ctx.fillStyle = wallGrad;
+            ctx.fillRect(0, 0, 768, 576);
+
+            // Polished concrete lobby floor in perspective
+            ctx.fillStyle = '#9aa6b2';
+            ctx.beginPath();
+            ctx.moveTo(0, 576);
+            ctx.lineTo(768, 576);
+            ctx.lineTo(612, 350);
+            ctx.lineTo(156, 350);
+            ctx.closePath();
+            ctx.fill();
+            ctx.strokeStyle = 'rgba(51, 65, 85, 0.38)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i <= 10; i++) {
+                const t = i / 10;
+                ctx.beginPath();
+                ctx.moveTo(156 + t * 456, 350);
+                ctx.lineTo(t * 768, 576);
+                ctx.stroke();
+            }
+            for (let i = 1; i <= 6; i++) {
+                const y = 350 + Math.pow(i / 6, 1.7) * 226;
+                const inset = ((y - 350) / 226) * 120;
+                ctx.beginPath();
+                ctx.moveTo(156 - inset, y);
+                ctx.lineTo(612 + inset, y);
+                ctx.stroke();
+            }
+
+            // Warm ceiling cove lighting
+            const cove = ctx.createLinearGradient(0, 0, 0, 150);
+            cove.addColorStop(0, 'rgba(254, 243, 199, 0.38)');
+            cove.addColorStop(1, 'rgba(254, 243, 199, 0)');
+            ctx.fillStyle = cove;
+            ctx.fillRect(0, 0, 768, 150);
+            ctx.fillStyle = '#fde68a';
+            ctx.fillRect(118, 72, 532, 10);
+            ctx.fillStyle = 'rgba(253, 230, 138, 0.3)';
+            ctx.fillRect(118, 82, 532, 24);
+
+            // Back-wall identity board
+            ctx.fillStyle = '#0f172a';
+            ctx.fillRect(232, 126, 304, 74);
+            ctx.strokeStyle = '#38bdf8';
+            ctx.lineWidth = 3;
+            ctx.strokeRect(232, 126, 304, 74);
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#e0f2fe';
+            ctx.font = 'bold 26px Inter, sans-serif';
+            ctx.fillText('K.D.U. FACTORY', 384, 158);
+            ctx.fillStyle = '#facc15';
+            ctx.font = 'bold 15px Inter, sans-serif';
+            ctx.fillText('STAIRS TO TOP FLOOR  \u2197', 384, 183);
+
+            // Reception counter on the left
+            ctx.fillStyle = '#1e3a5f';
+            ctx.fillRect(84, 388, 236, 96);
+            ctx.fillStyle = '#e2e8f0';
+            ctx.fillRect(84, 388, 236, 12);
+            ctx.fillStyle = '#0ea5e9';
+            ctx.fillRect(102, 414, 86, 24);
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 15px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('FACTORY', 108, 431);
+            ctx.fillText('RECEPTION', 108, 449);
+            ctx.fillStyle = '#facc15';
+            ctx.fillRect(292, 414, 8, 46);
+
+            // Stair flight with lit handrail on the right
+            for (let i = 0; i < 12; i++) {
+                ctx.fillStyle = i % 2 === 0 ? '#64748b' : '#7b8794';
+                ctx.fillRect(486 + i * 16, 470 - i * 24, 132, 18);
+            }
+            ctx.strokeStyle = '#facc15';
+            ctx.lineWidth = 6;
+            ctx.beginPath();
+            ctx.moveTo(486, 458);
+            ctx.lineTo(686, 176);
+            ctx.stroke();
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 3;
+            for (let i = 0; i < 8; i++) {
+                ctx.beginPath();
+                ctx.moveTo(500 + i * 24, 464 - i * 34);
+                ctx.lineTo(500 + i * 24, 424 - i * 34);
+                ctx.stroke();
+            }
+
+            // Floor guide arrow
+            ctx.strokeStyle = 'rgba(250, 204, 21, 0.8)';
+            ctx.lineWidth = 5;
+            ctx.beginPath();
+            ctx.moveTo(300, 540);
+            ctx.lineTo(438, 540);
+            ctx.lineTo(438, 512);
+            ctx.moveTo(438, 512);
+            ctx.lineTo(462, 535);
+            ctx.lineTo(438, 558);
+            ctx.stroke();
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
         // --- CREATE BUILT-IN PHOTO-ACCURATE WAYPOINT ZONES ---
         function createDefaultGateZone() {
             zones.push({
@@ -831,6 +948,16 @@
             // Lower rear yard at the foot of the relocated road
             if (z >= -24.5 && z <= -8.1 && x < -24.2 && x >= -31.0) {
                 return -2.5;
+            }
+
+            // Factory top-floor landing (external stair beside the new main door)
+            if (x >= -15.55 && x <= -12.45 && z <= -64.1 && z >= -67.05) {
+                return 7.6;
+            }
+            // Factory external staircase: ground at z = -52.6 rising to the top floor
+            if (x >= -14.75 && x <= -13.25 && z <= -52.6 && z >= -64.2) {
+                const t = Math.max(0, Math.min(1, (-52.6 - z) / 11.6));
+                return t * 7.6;
             }
 
             return 0.0;
@@ -1756,24 +1883,362 @@
             });
             group.add(carport);
 
-            const tukTuk = new THREE.Group();
-            tukTuk.position.set(-4.8, 0, -34.2);
-            tukTuk.rotation.y = 0.45;
-            const ttCanopy = new THREE.Mesh(new THREE.BoxGeometry(1.35, 1.45, 2.35), blackMetalMat);
-            ttCanopy.position.y = 1.05;
-            tukTuk.add(ttCanopy);
-            [[-0.68, 0.32, -0.75], [0.68, 0.32, -0.75], [0, 0.32, 0.9]].forEach(([wx, wy, wz]) => {
-                const wheel = new THREE.Mesh(new THREE.CylinderGeometry(0.28, 0.28, 0.16, 14), blackMetalMat);
-                wheel.rotation.z = Math.PI / 2;
-                wheel.position.set(wx, wy, wz);
-                tukTuk.add(wheel);
-            });
-            group.add(tukTuk);
+            // Five red-crossed courtyard vehicles were intentionally removed here
+            // (Tuk-Tuk and four parked cars). The blue-trimmed carport remains intact.
 
-            group.add(createCar(0xf8fafc, -5.8, -37.8, 0.35));
-            group.add(createCar(0x475569, -7.4, -44.5, 0.4, true));
-            group.add(createCar(0xd1d5db, -7.4, -48.0, 0.4, true));
-            group.add(createCar(0xf8fafc, -7.4, -52.5, 0.4, true));
+            // =========================================================================
+            // NEW: FACTORY MAIN ENTRANCE, COVERED WALKWAY HUT & TOP-FLOOR STAIR
+            // (Built at the green-highlighted bay on the factory's east facade.)
+            // =========================================================================
+            {
+                const feDoorZ = -48.8;
+                const feDoorW = 5.8;
+                const feDoorH = 4.2;
+
+                const feFrameMat = new THREE.MeshStandardMaterial({ color: 0x1e293b, metalness: 0.62, roughness: 0.34 });
+                const feTrimMat = new THREE.MeshStandardMaterial({ color: 0xdbe4ee, metalness: 0.5, roughness: 0.38 });
+                const feFloorMat = new THREE.MeshStandardMaterial({ color: 0x9ca3af, roughness: 0.62, metalness: 0.08 });
+                const feRoofMat = blueRoofMat;
+                const factoryEntrance = new THREE.Group();
+
+                // ---- 1. Walk-in entrance vestibule with oversized open doors ----
+                const feVestX1 = -15.42;
+                const feVestX2 = -12.98;
+                const feVestDepth = feVestX2 - feVestX1;
+                const feVestCX = (feVestX1 + feVestX2) / 2;
+
+                const feFloor = new THREE.Mesh(new THREE.BoxGeometry(feVestDepth, 0.16, feDoorW + 0.6), feFloorMat);
+                feFloor.position.set(feVestCX, 0.08, feDoorZ);
+                feFloor.receiveShadow = true;
+                factoryEntrance.add(feFloor);
+
+                const feCeiling = new THREE.Mesh(new THREE.BoxGeometry(feVestDepth, 0.2, feDoorW + 0.6), feFrameMat);
+                feCeiling.position.set(feVestCX, feDoorH + 0.1, feDoorZ);
+                factoryEntrance.add(feCeiling);
+
+                [-1, 1].forEach(side => {
+                    const jamb = new THREE.Mesh(new THREE.BoxGeometry(feVestDepth + 0.15, feDoorH + 0.2, 0.3), feFrameMat);
+                    jamb.position.set(feVestCX + 0.075, (feDoorH + 0.2) / 2, feDoorZ + side * (feDoorW / 2 + 0.15));
+                    jamb.castShadow = true;
+                    factoryEntrance.add(jamb);
+                });
+
+                // Interior rear wall with a lobby/staircase view behind the open doors
+                const feBackWall = new THREE.Mesh(
+                    new THREE.PlaneGeometry(feDoorW, feDoorH),
+                    new THREE.MeshStandardMaterial({ map: createFactoryLobbyTexture(), roughness: 0.8 })
+                );
+                feBackWall.position.set(feVestX1 + 0.04, feDoorH / 2, feDoorZ);
+                feBackWall.rotation.y = Math.PI / 2;
+                factoryEntrance.add(feBackWall);
+
+                // Warm interior light, so the doorway reads as a real opening
+                const feLight = new THREE.PointLight(0xffe2b0, 1.2, 11);
+                feLight.position.set(feVestCX, feDoorH - 0.3, feDoorZ);
+                factoryEntrance.add(feLight);
+
+                [-1.85, 0, 1.85].forEach(lz => {
+                    const feDownlight = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.07, 0.04, 0.56),
+                        new THREE.MeshBasicMaterial({ color: 0xfff2cc })
+                    );
+                    feDownlight.position.set(feVestCX, feDoorH - 0.02, feDoorZ + lz);
+                    factoryEntrance.add(feDownlight);
+                });
+
+                // Outer portal frame
+                const feHeader = new THREE.Mesh(new THREE.BoxGeometry(0.42, 0.46, feDoorW + 0.9), feFrameMat);
+                feHeader.position.set(feVestX2 - 0.02, feDoorH + 0.23, feDoorZ);
+                feHeader.castShadow = true;
+                factoryEntrance.add(feHeader);
+
+                [-1, 1].forEach(side => {
+                    const fePillar = new THREE.Mesh(new THREE.BoxGeometry(0.42, feDoorH + 0.46, 0.42), feFrameMat);
+                    fePillar.position.set(feVestX2 - 0.02, (feDoorH + 0.46) / 2, feDoorZ + side * (feDoorW / 2 + 0.21));
+                    fePillar.castShadow = true;
+                    factoryEntrance.add(fePillar);
+                });
+
+                // Two retracted glass leaves leave a wide clear factory entrance
+                [-1, 1].forEach(side => {
+                    const feLeaf = new THREE.Group();
+                    const feGlass = new THREE.Mesh(new THREE.PlaneGeometry(1.2, feDoorH - 0.28), glassLobbyMat);
+                    feGlass.rotation.y = Math.PI / 2;
+                    feGlass.position.y = (feDoorH - 0.28) / 2;
+                    feLeaf.add(feGlass);
+                    const feTopRail = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.08, 1.26), feTrimMat);
+                    feTopRail.position.y = feDoorH - 0.32;
+                    feLeaf.add(feTopRail);
+                    const feStile = new THREE.Mesh(new THREE.BoxGeometry(0.1, feDoorH - 0.24, 0.08), feTrimMat);
+                    feStile.position.set(0, (feDoorH - 0.24) / 2, 0.63);
+                    feLeaf.add(feStile);
+                    feLeaf.position.set(feVestX2 + 0.04, 0.1, feDoorZ + side * (feDoorW / 2 - 0.7));
+                    factoryEntrance.add(feLeaf);
+                });
+
+                // Concrete threshold step
+                const feStep = new THREE.Mesh(new THREE.BoxGeometry(1.0, 0.16, feDoorW + 1.0), concreteMat);
+                feStep.position.set(feVestX2 + 0.55, 0.08, feDoorZ);
+                feStep.receiveShadow = true;
+                factoryEntrance.add(feStep);
+
+                // Large elevated factory name board
+                const feMainSignTex = createSignTexture('FACTORY ENTRANCE', '#0f172a', '#f8fafc', 768, 112, 46);
+                const feMainSign = new THREE.Mesh(
+                    new THREE.PlaneGeometry(5.9, 0.86),
+                    new THREE.MeshBasicMaterial({ map: feMainSignTex, side: THREE.DoubleSide })
+                );
+                feMainSign.position.set(-15.38, 6.25, feDoorZ);
+                feMainSign.rotation.y = Math.PI / 2;
+                factoryEntrance.add(feMainSign);
+
+                const feSubSignTex = createSignTexture('K.D.U. PRODUCTION WING  •  STAIRS TO TOP FLOOR', '#1e3a8a', '#fef9c3', 768, 64, 24);
+                const feSubSign = new THREE.Mesh(
+                    new THREE.PlaneGeometry(5.4, 0.44),
+                    new THREE.MeshBasicMaterial({ map: feSubSignTex, side: THREE.DoubleSide })
+                );
+                feSubSign.position.set(-15.37, 5.88, feDoorZ);
+                feSubSign.rotation.y = Math.PI / 2;
+                factoryEntrance.add(feSubSign);
+
+                // ---- 2. Pitched-roof covered walkway hut in front of the door ----
+                const feHutX1 = -12.2;
+                const feHutX2 = -7.3;
+                const feHutDepth = feHutX2 - feHutX1;
+                const feHutCX = (feHutX1 + feHutX2) / 2;
+                const feHutHalfW = 5.4;
+                const feEaveY = 4.8;
+                const feRidgeY = 5.6;
+                const feRoofPitch = Math.atan2(feRidgeY - feEaveY, feHutHalfW);
+                const feRoofSlope = Math.hypot(feHutHalfW, feRidgeY - feEaveY) + 0.32;
+
+                for (let side = -1; side <= 1; side += 2) {
+                    const feRoofSlopeMesh = new THREE.Mesh(
+                        new THREE.BoxGeometry(feHutDepth + 0.5, 0.12, feRoofSlope),
+                        feRoofMat
+                    );
+                    feRoofSlopeMesh.position.set(feHutCX, (feEaveY + feRidgeY) / 2, feDoorZ + side * (feHutHalfW / 2));
+                    feRoofSlopeMesh.rotation.x = side * feRoofPitch;
+                    feRoofSlopeMesh.castShadow = true;
+                    factoryEntrance.add(feRoofSlopeMesh);
+                }
+
+                const feRidgeBeam = new THREE.Mesh(new THREE.BoxGeometry(feHutDepth + 0.65, 0.14, 0.16), whiteWallMat);
+                feRidgeBeam.position.set(feHutCX, feRidgeY + 0.02, feDoorZ);
+                factoryEntrance.add(feRidgeBeam);
+
+                [-1, 1].forEach(side => {
+                    const feEaveBeam = new THREE.Mesh(new THREE.BoxGeometry(feHutDepth + 0.45, 0.14, 0.13), whiteWallMat);
+                    feEaveBeam.position.set(feHutCX, feEaveY, feDoorZ + side * feHutHalfW);
+                    factoryEntrance.add(feEaveBeam);
+                });
+
+                [feHutX1 + 0.2, feHutX2 - 0.2].forEach(px => {
+                    [-1, 1].forEach(side => {
+                        const fePost = new THREE.Mesh(new THREE.CylinderGeometry(0.09, 0.11, feEaveY, 10), poleMat);
+                        fePost.position.set(px, feEaveY / 2, feDoorZ + side * (feHutHalfW - 0.45));
+                        fePost.castShadow = true;
+                        factoryEntrance.add(fePost);
+                    });
+                });
+
+                [-2.4, 0, 2.4].forEach(pxOffset => {
+                    const feTieBeam = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.12, feHutHalfW * 2 - 0.8), whiteWallMat);
+                    feTieBeam.position.set(feHutCX + pxOffset, feEaveY + 0.04, feDoorZ);
+                    factoryEntrance.add(feTieBeam);
+                    const feKingPost = new THREE.Mesh(new THREE.BoxGeometry(0.1, feRidgeY - feEaveY, 0.1), whiteWallMat);
+                    feKingPost.position.set(feHutCX + pxOffset, feEaveY + (feRidgeY - feEaveY) / 2, feDoorZ);
+                    factoryEntrance.add(feKingPost);
+                });
+
+                [-2.5, 0, 2.5].forEach(pxOffset => {
+                    const feLamp = new THREE.Mesh(
+                        new THREE.BoxGeometry(1.15, 0.06, 0.16),
+                        new THREE.MeshBasicMaterial({ color: 0xfef08a })
+                    );
+                    feLamp.position.set(feHutCX + pxOffset, feEaveY + 0.55, feDoorZ);
+                    factoryEntrance.add(feLamp);
+                });
+
+                const feHutSignTex = createSignTexture('FACTORY WALKWAY  •  MAIN ENTRANCE', '#1e3a8a', '#f8fafc', 640, 64, 25);
+                const feHutSign = new THREE.Mesh(
+                    new THREE.PlaneGeometry(4.9, 0.5),
+                    new THREE.MeshBasicMaterial({ map: feHutSignTex, side: THREE.DoubleSide })
+                );
+                feHutSign.position.set(feHutX2 + 0.06, feEaveY + 0.28, feDoorZ);
+                feHutSign.rotation.y = Math.PI / 2;
+                factoryEntrance.add(feHutSign);
+
+                const feWalkPad = new THREE.Mesh(
+                    new THREE.BoxGeometry(feHutDepth + 0.6, 0.05, 4.0),
+                    new THREE.MeshStandardMaterial({ color: 0xb8bec7, roughness: 0.88 })
+                );
+                feWalkPad.position.set(feHutCX, 0.025, feDoorZ);
+                feWalkPad.receiveShadow = true;
+                factoryEntrance.add(feWalkPad);
+
+                // Concrete approach connects the entrance threshold to the top-floor stair
+                const feStairApproach = new THREE.Mesh(
+                    new THREE.BoxGeometry(2.3, 0.05, 2.1),
+                    new THREE.MeshStandardMaterial({ color: 0xb8bec7, roughness: 0.88 })
+                );
+                feStairApproach.position.set(-13.9, 0.025, -52.35);
+                feStairApproach.receiveShadow = true;
+                factoryEntrance.add(feStairApproach);
+
+                // ---- 3. External steel staircase from the entrance to the top floor ----
+                const feStairCX = -14.0;
+                const feStairStartZ = -52.6;
+                const feStairEndZ = -64.2;
+                const feStairRunTotal = Math.abs(feStairEndZ - feStairStartZ);
+                const feStairRiseTotal = 7.6;
+                const feStairCount = 24;
+                const feStairWidth = 1.4;
+                const feStairRise = feStairRiseTotal / feStairCount;
+                const feStairRun = feStairRunTotal / feStairCount;
+                const feStairAngle = Math.atan2(feStairRiseTotal, feStairRunTotal);
+                const feStairMidZ = (feStairStartZ + feStairEndZ) / 2;
+
+                const feStairMat = new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.45, roughness: 0.5 });
+
+                for (let step = 0; step < feStairCount; step++) {
+                    const stepZ = feStairStartZ - (step + 0.5) * feStairRun;
+                    const stepY = (step + 1) * feStairRise;
+                    const feTread = new THREE.Mesh(
+                        new THREE.BoxGeometry(feStairWidth, 0.075, feStairRun + 0.04),
+                        feStairMat
+                    );
+                    feTread.position.set(feStairCX, stepY, stepZ);
+                    feTread.castShadow = true;
+                    factoryEntrance.add(feTread);
+
+                    const feRiser = new THREE.Mesh(
+                        new THREE.BoxGeometry(feStairWidth, feStairRise, 0.05),
+                        feFrameMat
+                    );
+                    feRiser.position.set(feStairCX, stepY - feStairRise / 2, stepZ + feStairRun / 2);
+                    factoryEntrance.add(feRiser);
+                }
+
+                [-1, 1].forEach(side => {
+                    const feStringer = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.16, 0.42, Math.hypot(feStairRunTotal, feStairRiseTotal) + 0.4),
+                        feFrameMat
+                    );
+                    feStringer.position.set(feStairCX + side * (feStairWidth / 2 + 0.03), feStairRiseTotal / 2 - 0.18, feStairMidZ);
+                    feStringer.rotation.x = feStairAngle;
+                    feStringer.castShadow = true;
+                    factoryEntrance.add(feStringer);
+
+                    const feTopRail = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.06, 0.06, Math.hypot(feStairRunTotal, feStairRiseTotal) + 0.15),
+                        feTrimMat
+                    );
+                    feTopRail.position.set(feStairCX + side * (feStairWidth / 2 + 0.08), feStairRiseTotal / 2 + 1.0, feStairMidZ);
+                    feTopRail.rotation.x = feStairAngle;
+                    factoryEntrance.add(feTopRail);
+
+                    for (let i = 0; i <= 8; i++) {
+                        const t = i / 8;
+                        const balusterZ = feStairStartZ - t * feStairRunTotal;
+                        const balusterY = t * feStairRiseTotal;
+                        const feBaluster = new THREE.Mesh(
+                            new THREE.CylinderGeometry(0.03, 0.03, 1.02, 8),
+                            feTrimMat
+                        );
+                        feBaluster.position.set(feStairCX + side * (feStairWidth / 2 + 0.08), balusterY + 0.51, balusterZ);
+                        factoryEntrance.add(feBaluster);
+                    }
+                });
+
+                // Steel support columns under the stair
+                [feStairStartZ - 3.4, feStairStartZ - 7.0, feStairStartZ - 10.4].forEach((pz, idx) => {
+                    const colHeight = ((feStairStartZ - pz) / feStairRunTotal) * feStairRiseTotal - 0.16;
+                    const feSupport = new THREE.Mesh(
+                        new THREE.BoxGeometry(0.12, Math.max(0.4, colHeight), 0.12),
+                        feFrameMat
+                    );
+                    feSupport.position.set(feStairCX, Math.max(0.4, colHeight) / 2, pz);
+                    factoryEntrance.add(feSupport);
+                });
+
+                // ---- 4. Top-floor landing, guard rails and upper access door ----
+                const feLanding = new THREE.Mesh(
+                    new THREE.BoxGeometry(3.1, 0.18, 2.9),
+                    new THREE.MeshStandardMaterial({ color: 0x8f9aa6, roughness: 0.7, metalness: 0.15 })
+                );
+                feLanding.position.set(feStairCX - 0.05, feStairRiseTotal, feStairEndZ - 1.35);
+                feLanding.castShadow = true;
+                feLanding.receiveShadow = true;
+                factoryEntrance.add(feLanding);
+
+                const feLandingY = feStairRiseTotal + 0.95;
+                const feLandingCX = feStairCX - 0.05;
+                const feLandingCZ = feStairEndZ - 1.35;
+
+                const feRailLongEast = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.06, 2.9), feTrimMat);
+                feRailLongEast.position.set(feLandingCX + 1.55, feLandingY, feLandingCZ);
+                factoryEntrance.add(feRailLongEast);
+
+                const feRailSouth = new THREE.Mesh(new THREE.BoxGeometry(3.1, 0.06, 0.06), feTrimMat);
+                feRailSouth.position.set(feLandingCX, feLandingY, feLandingCZ - 1.45);
+                factoryEntrance.add(feRailSouth);
+
+                const feRailNorth = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.06, 0.06), feTrimMat);
+                feRailNorth.position.set(feLandingCX + 0.8, feLandingY, feLandingCZ + 1.45);
+                factoryEntrance.add(feRailNorth);
+
+                [[-1.55, 1.45], [-1.55, -1.45], [1.55, -1.45], [1.55, 1.45], [0, -1.45]].forEach(([rx, rz]) => {
+                    const feLandingPost = new THREE.Mesh(new THREE.CylinderGeometry(0.035, 0.035, 1.02, 8), feTrimMat);
+                    feLandingPost.position.set(feLandingCX + rx, feStairRiseTotal + 0.51, feLandingCZ + rz);
+                    factoryEntrance.add(feLandingPost);
+                });
+
+                // Two columns carry the landing down to grade
+                [[-12.6, -66.15], [-12.6, -63.95]].forEach(([sx, sz]) => {
+                    const feLandingColumn = new THREE.Mesh(new THREE.BoxGeometry(0.16, 7.6, 0.16), feFrameMat);
+                    feLandingColumn.position.set(sx, 3.8, sz);
+                    feLandingColumn.castShadow = true;
+                    factoryEntrance.add(feLandingColumn);
+                });
+
+                // Top-floor entrance door on the factory face
+                const feTopDoorFrame = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.75, 2.25), feFrameMat);
+                feTopDoorFrame.position.set(-15.36, feStairRiseTotal + 1.375, feLandingCZ);
+                factoryEntrance.add(feTopDoorFrame);
+
+                const feTopDoorGlass = new THREE.Mesh(new THREE.PlaneGeometry(1.85, 2.45), glassLobbyMat);
+                feTopDoorGlass.position.set(-15.23, feStairRiseTotal + 1.225, feLandingCZ);
+                feTopDoorGlass.rotation.y = Math.PI / 2;
+                factoryEntrance.add(feTopDoorGlass);
+
+                const feTopDoorCanopy = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.14, 2.9), feRoofMat);
+                feTopDoorCanopy.position.set(-14.65, feStairRiseTotal + 2.62, feLandingCZ);
+                feTopDoorCanopy.castShadow = true;
+                factoryEntrance.add(feTopDoorCanopy);
+
+                const feTopSignTex = createSignTexture('TOP FLOOR  •  3RD FLOOR', '#0f172a', '#fef08a', 640, 80, 34);
+                const feTopSign = new THREE.Mesh(
+                    new THREE.PlaneGeometry(2.8, 0.42),
+                    new THREE.MeshBasicMaterial({ map: feTopSignTex, side: THREE.DoubleSide })
+                );
+                feTopSign.position.set(-15.25, feStairRiseTotal + 2.95, feLandingCZ);
+                feTopSign.rotation.y = Math.PI / 2;
+                factoryEntrance.add(feTopSign);
+
+                // Stairway identification sign beside the base of the stair
+                const feStairSignTex = createSignTexture('STAIRS TO TOP FLOOR  \u2191', '#b45309', '#fff7ed', 512, 80, 32);
+                const feStairSign = new THREE.Mesh(
+                    new THREE.PlaneGeometry(2.7, 0.44),
+                    new THREE.MeshBasicMaterial({ map: feStairSignTex, side: THREE.DoubleSide })
+                );
+                feStairSign.position.set(-15.36, 3.25, -53.4);
+                feStairSign.rotation.y = Math.PI / 2;
+                factoryEntrance.add(feStairSign);
+
+                group.add(factoryEntrance);
+            }
+
 
             // =========================================================================
             // PHOTO 4: "WELCOME TO GALPADITENNE" WATERFALL POND & FLAGS (Z = -49.5)
