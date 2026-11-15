@@ -1113,6 +1113,204 @@
             return attendancePanelTexture;
         }
 
+        // --- ASSEMBLY HUT & PLAZA TEXTURES ---
+        function createStageDeckTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#8a5a34';
+            ctx.fillRect(0, 0, 512, 512);
+
+            const plankH = 64;
+            for (let row = 0; row < 8; row++) {
+                const y = row * plankH;
+                const shades = ['#9a663c', '#8f5f38', '#a06b41', '#946238'];
+                ctx.fillStyle = shades[row % shades.length];
+                ctx.fillRect(0, y, 512, plankH - 3);
+
+                // wood grain
+                for (let g = 0; g < 26; g++) {
+                    const gy = y + 6 + Math.random() * (plankH - 14);
+                    ctx.strokeStyle = 'rgba(60, 35, 16, ' + (0.05 + Math.random() * 0.12) + ')';
+                    ctx.lineWidth = 1 + Math.random() * 1.4;
+                    ctx.beginPath();
+                    ctx.moveTo(0, gy);
+                    ctx.bezierCurveTo(150, gy + Math.random() * 6 - 3, 340, gy + Math.random() * 6 - 3, 512, gy);
+                    ctx.stroke();
+                }
+
+                ctx.fillStyle = 'rgba(40, 24, 12, 0.55)';
+                ctx.fillRect(0, y + plankH - 3, 512, 3);
+                ctx.fillStyle = 'rgba(255, 236, 210, 0.16)';
+                ctx.fillRect(0, y, 512, 2);
+
+                // staggered board seams
+                for (let seam = (row % 2) * 160; seam < 512; seam += 256) {
+                    ctx.fillStyle = 'rgba(40, 24, 12, 0.5)';
+                    ctx.fillRect(seam, y, 2, plankH - 3);
+                }
+            }
+
+            // subtle sheen highlights
+            const sheen = ctx.createLinearGradient(0, 0, 512, 512);
+            sheen.addColorStop(0, 'rgba(255,255,255,0.06)');
+            sheen.addColorStop(0.5, 'rgba(255,255,255,0)');
+            sheen.addColorStop(1, 'rgba(255,255,255,0.05)');
+            ctx.fillStyle = sheen;
+            ctx.fillRect(0, 0, 512, 512);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(2, 3);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createPlazaPaverTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 512;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            ctx.fillStyle = '#b9b4a8';
+            ctx.fillRect(0, 0, 512, 512);
+
+            const brickW = 128;
+            const brickH = 64;
+            for (let row = 0; row < 8; row++) {
+                for (let col = -1; col < 5; col++) {
+                    const ox = (row % 2) * (brickW / 2);
+                    const bx = col * brickW + ox;
+                    const by = row * brickH;
+                    const tone = 176 + ((row * 13 + col * 29 + 256) % 26);
+                    ctx.fillStyle = 'rgb(' + tone + ', ' + (tone - 4) + ', ' + (tone - 14) + ')';
+                    ctx.fillRect(bx + 2, by + 2, brickW - 4, brickH - 4);
+
+                    ctx.fillStyle = 'rgba(255, 255, 255, 0.14)';
+                    ctx.fillRect(bx + 2, by + 2, brickW - 4, 2);
+                    ctx.fillStyle = 'rgba(78, 72, 62, 0.2)';
+                    ctx.fillRect(bx + 2, by + brickH - 5, brickW - 4, 3);
+                }
+            }
+
+            for (let i = 0; i < 2600; i++) {
+                const px = Math.random() * 512;
+                const py = Math.random() * 512;
+                ctx.fillStyle = 'rgba(90, 84, 74, ' + (0.03 + Math.random() * 0.08) + ')';
+                ctx.fillRect(px, py, 2, 2);
+            }
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.wrapS = THREE.RepeatWrapping;
+            tex.wrapT = THREE.RepeatWrapping;
+            tex.repeat.set(5, 6);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
+        function createHrLobbyTexture() {
+            const canvas = document.createElement('canvas');
+            canvas.width = 768;
+            canvas.height = 512;
+            const ctx = canvas.getContext('2d');
+
+            const wall = ctx.createLinearGradient(0, 0, 0, 512);
+            wall.addColorStop(0, '#e8edf3');
+            wall.addColorStop(0.55, '#cfd9e4');
+            wall.addColorStop(1, '#b7c3d1');
+            ctx.fillStyle = wall;
+            ctx.fillRect(0, 0, 768, 512);
+
+            // Ceiling with recessed lighting
+            ctx.fillStyle = '#f4f7fa';
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(768, 0);
+            ctx.lineTo(650, 118);
+            ctx.lineTo(118, 118);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = '#fef3c7';
+            [190, 384, 578].forEach(lx => {
+                ctx.fillRect(lx - 46, 58, 92, 9);
+                ctx.fillStyle = 'rgba(253, 230, 138, 0.28)';
+                ctx.fillRect(lx - 52, 67, 104, 22);
+                ctx.fillStyle = '#fef3c7';
+            });
+
+            // Floor
+            const floor = ctx.createLinearGradient(0, 330, 0, 512);
+            floor.addColorStop(0, '#9aa6b3');
+            floor.addColorStop(1, '#798695');
+            ctx.fillStyle = floor;
+            ctx.fillRect(0, 330, 768, 182);
+            ctx.strokeStyle = 'rgba(50, 65, 80, 0.22)';
+            ctx.lineWidth = 2;
+            for (let i = 0; i <= 8; i++) {
+                const t = i / 8;
+                ctx.beginPath();
+                ctx.moveTo(130 + t * 508, 330);
+                ctx.lineTo(t * 768, 512);
+                ctx.stroke();
+            }
+
+            // Back wall band + HR signage
+            ctx.fillStyle = '#123a63';
+            ctx.fillRect(86, 150, 596, 40);
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 26px Inter, sans-serif';
+            ctx.textAlign = 'center';
+            ctx.fillText('HUMAN  RESOURCES', 384, 179);
+
+            // Reception desk
+            ctx.fillStyle = '#1f3a57';
+            ctx.fillRect(120, 352, 322, 88);
+            ctx.fillStyle = '#d9b46a';
+            ctx.fillRect(120, 352, 322, 10);
+            ctx.fillStyle = '#0ea5e9';
+            ctx.fillRect(152, 382, 82, 24);
+            ctx.fillStyle = '#f8fafc';
+            ctx.font = 'bold 14px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('HR DESK', 160, 399);
+            ctx.fillStyle = '#94a3b8';
+            ctx.font = '12px Inter, sans-serif';
+            ctx.fillText('Staff & attendance enquiries', 152, 424);
+
+            // Waiting chairs
+            [[492, 372], [576, 372]].forEach(([cx, cy], idx) => {
+                ctx.fillStyle = idx === 0 ? '#315b49' : '#3f5872';
+                ctx.fillRect(cx, cy, 66, 62);
+                ctx.fillStyle = '#243b4f';
+                ctx.fillRect(cx + 8, cy + 46, 50, 16);
+            });
+
+            // Potted plant
+            ctx.fillStyle = '#b45309';
+            ctx.fillRect(684, 394, 46, 50);
+            ctx.fillStyle = '#2f7e43';
+            for (let l = 0; l < 7; l++) {
+                ctx.beginPath();
+                ctx.ellipse(707 + Math.cos(l) * 26, 368 + Math.sin(l * 1.7) * 22, 22, 11, l, 0, Math.PI * 2);
+                ctx.fill();
+            }
+
+            // Direction strip
+            ctx.fillStyle = '#facc15';
+            ctx.fillRect(88, 292, 4, 36);
+            ctx.fillStyle = '#1e3a5f';
+            ctx.font = 'bold 17px Inter, sans-serif';
+            ctx.textAlign = 'left';
+            ctx.fillText('STAFF ENTRANCE  •  RECEPTION AHEAD', 108, 316);
+
+            const tex = new THREE.CanvasTexture(canvas);
+            tex.needsUpdate = true;
+            return tex;
+        }
+
         // --- CREATE BUILT-IN PHOTO-ACCURATE WAYPOINT ZONES ---
         function createDefaultGateZone() {
             zones.push({
@@ -1194,6 +1392,15 @@
                 return -2.5;
             }
 
+            // Assembly hut stage (raised timber podium east of HR)
+            if (z >= -22.2 && z <= -17.8) {
+                if (x >= -9.0 && x <= -5.8) {
+                    return 0.42;
+                }
+                if (x > -5.8 && x <= -4.96) {
+                    return 0.42 * ((-4.96 - x) / 0.84);
+                }
+            }
             // Factory top-floor landing (external stair beside the new main door)
             if (x >= -15.55 && x <= -12.45 && z <= -64.1 && z >= -67.05) {
                 return 7.6;
@@ -2053,6 +2260,417 @@
             };
             attendanceLog = [];
 
+
+
+            // =========================================================================
+            // NEW: HR STAFF ENTRANCE (marked "D") + ASSEMBLY HUT WITH RAISED STAGE
+            // (marked "HUT") on the tarmac directly east of the HR Office facade.
+            // =========================================================================
+
+            // ---- Paved plaza: covers the small ground gap in front of HR ----
+            const hrPlazaMat = new THREE.MeshStandardMaterial({
+                map: createPlazaPaverTexture(),
+                roughness: 0.88,
+                metalness: 0.04
+            });
+            const hrPlazaBorderMat = new THREE.MeshStandardMaterial({ color: 0x8d8779, roughness: 0.9 });
+            const hrPlazaBorder = new THREE.Mesh(new THREE.BoxGeometry(12.6, 0.07, 14.6), hrPlazaBorderMat);
+            hrPlazaBorder.position.set(-10.4, 0.035, -18.8);
+            hrPlazaBorder.receiveShadow = true;
+            group.add(hrPlazaBorder);
+
+            const hrPlaza = new THREE.Mesh(new THREE.BoxGeometry(12.4, 0.08, 14.4), hrPlazaMat);
+            hrPlaza.position.set(-10.4, 0.055, -18.8);
+            hrPlaza.receiveShadow = true;
+            group.add(hrPlaza);
+
+            // =========================================================================
+            // HR STAFF ENTRANCE — the new "D" door on the HR Office east facade
+            // =========================================================================
+            {
+                const hrEntrZ = -23.3;
+                const hrEntrH = 2.78;
+                const hrEntrLeafW = 1.30;
+                const hrEntrSideW = 0.62;
+                const hrEntrW = hrEntrLeafW + hrEntrSideW;
+                const hrEntrFaceX = -17.0;
+
+                const hrEntrFrameMat = new THREE.MeshStandardMaterial({ color: 0x1f2937, metalness: 0.6, roughness: 0.32 });
+                const hrEntrTrimMat = new THREE.MeshStandardMaterial({ color: 0xdbe4ee, metalness: 0.5, roughness: 0.3 });
+
+                const hrEntrance = new THREE.Group();
+
+                // Recessed reveal + lit HR lobby visible through the glass
+                const hrEntrReveal = new THREE.Mesh(
+                    new THREE.BoxGeometry(0.2, hrEntrH + 0.24, hrEntrW + 0.3),
+                    new THREE.MeshStandardMaterial({ color: 0x0f1c2b, roughness: 0.7 })
+                );
+                hrEntrReveal.position.set(hrEntrFaceX + 0.02, (hrEntrH + 0.24) / 2, hrEntrZ);
+                hrEntrance.add(hrEntrReveal);
+
+                const hrLobby = new THREE.Mesh(
+                    new THREE.PlaneGeometry(hrEntrW - 0.08, hrEntrH - 0.08),
+                    new THREE.MeshBasicMaterial({ map: createHrLobbyTexture() })
+                );
+                hrLobby.position.set(hrEntrFaceX + 0.155, hrEntrH / 2 - 0.05, hrEntrZ);
+                hrLobby.rotation.y = Math.PI / 2;
+                hrEntrance.add(hrLobby);
+
+                // Outer steel portal frame
+                const hrEntrHeader = new THREE.Mesh(new THREE.BoxGeometry(0.26, 0.2, hrEntrW + 0.34), hrEntrFrameMat);
+                hrEntrHeader.position.set(hrEntrFaceX + 0.14, hrEntrH + 0.08, hrEntrZ);
+                hrEntrance.add(hrEntrHeader);
+
+                [-1, 1].forEach(side => {
+                    const jamb = new THREE.Mesh(new THREE.BoxGeometry(0.26, hrEntrH + 0.16, 0.17), hrEntrFrameMat);
+                    jamb.position.set(hrEntrFaceX + 0.14, (hrEntrH + 0.16) / 2, hrEntrZ + side * (hrEntrW / 2 + 0.085));
+                    jamb.castShadow = true;
+                    hrEntrance.add(jamb);
+                });
+
+                // Centre mullion between the door leaf and the fixed side lite
+                const hrEntrMullion = new THREE.Mesh(new THREE.BoxGeometry(0.24, hrEntrH, 0.11), hrEntrFrameMat);
+                hrEntrMullion.position.set(hrEntrFaceX + 0.15, hrEntrH / 2, hrEntrZ - hrEntrW / 2 + hrEntrSideW);
+                hrEntrance.add(hrEntrMullion);
+
+                // Fixed side lite (north side)
+                const hrDoorGlassMat = new THREE.MeshStandardMaterial({
+                    color: 0xdff3fb,
+                    roughness: 0.06,
+                    metalness: 0.12,
+                    transparent: true,
+                    opacity: 0.22,
+                    side: THREE.DoubleSide
+                });
+                const hrSideLite = new THREE.Mesh(
+                    new THREE.PlaneGeometry(hrEntrSideW - 0.12, hrEntrH - 0.16),
+                    hrDoorGlassMat
+                );
+                hrSideLite.position.set(hrEntrFaceX + 0.16, hrEntrH / 2, hrEntrZ - hrEntrW / 2 + hrEntrSideW / 2);
+                hrSideLite.rotation.y = Math.PI / 2;
+                hrEntrance.add(hrSideLite);
+
+                // Main glass door leaf (south side), slightly ajar
+                const hrLeafPivot = new THREE.Group();
+                hrLeafPivot.position.set(hrEntrFaceX + 0.17, 0.05, hrEntrZ + hrEntrW / 2 - 0.02);
+                const hrLeafGlass = new THREE.Mesh(
+                    new THREE.PlaneGeometry(hrEntrLeafW - 0.12, hrEntrH - 0.18),
+                    hrDoorGlassMat
+                );
+                hrLeafGlass.position.set(0, (hrEntrH - 0.18) / 2, -hrEntrLeafW / 2);
+                hrLeafGlass.rotation.y = Math.PI / 2;
+                hrLeafPivot.add(hrLeafGlass);
+
+                [-hrEntrLeafW + 0.06, -0.06].forEach(lz => {
+                    const stile = new THREE.Mesh(new THREE.BoxGeometry(0.09, hrEntrH - 0.1, 0.07), hrEntrTrimMat);
+                    stile.position.set(0, (hrEntrH - 0.1) / 2, lz);
+                    hrLeafPivot.add(stile);
+                });
+                [0.16, hrEntrH - 0.2].forEach(ly => {
+                    const rail = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.07, hrEntrLeafW - 0.06), hrEntrTrimMat);
+                    rail.position.set(0, ly, -hrEntrLeafW / 2);
+                    hrLeafPivot.add(rail);
+                });
+                const hrHandle = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.022, 0.022, 0.62, 10),
+                    new THREE.MeshStandardMaterial({ color: 0xcbd5e1, metalness: 0.9, roughness: 0.18 })
+                );
+                hrHandle.position.set(0.12, 1.05, -0.16);
+                hrLeafPivot.add(hrHandle);
+                hrLeafPivot.rotation.y = -0.24;
+                hrEntrance.add(hrLeafPivot);
+
+                // Transom band above the entrance
+                const hrTransom = new THREE.Mesh(
+                    new THREE.PlaneGeometry(hrEntrW - 0.04, 0.34),
+                    hrDoorGlassMat
+                );
+                hrTransom.position.set(hrEntrFaceX + 0.15, hrEntrH + 0.02, hrEntrZ);
+                hrTransom.rotation.y = Math.PI / 2;
+                hrEntrance.add(hrTransom);
+
+                // Projecting canopy
+                const hrCanopyNew = new THREE.Mesh(new THREE.BoxGeometry(1.85, 0.13, hrEntrW + 0.9), hrEntrFrameMat);
+                hrCanopyNew.position.set(hrEntrFaceX + 1.08, 3.02, hrEntrZ);
+                hrCanopyNew.castShadow = true;
+                hrEntrance.add(hrCanopyNew);
+
+                const hrCanopyLip = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.2, hrEntrW + 0.94), hrEntrTrimMat);
+                hrCanopyLip.position.set(hrEntrFaceX + 1.99, 2.99, hrEntrZ);
+                hrEntrance.add(hrCanopyLip);
+
+                // Canopy fascia signage
+                const hrEntrSignTex = createSignTexture('HR OFFICE  •  STAFF ENTRANCE', '#0b3a67', '#e0f2fe', 704, 72, 30);
+                const hrEntrSign = new THREE.Mesh(
+                    new THREE.PlaneGeometry(2.28, 0.25),
+                    new THREE.MeshBasicMaterial({ map: hrEntrSignTex })
+                );
+                hrEntrSign.position.set(hrEntrFaceX + 2.05, 3.0, hrEntrZ);
+                hrEntrSign.rotation.y = Math.PI / 2;
+                hrEntrance.add(hrEntrSign);
+
+                // Wall sign above the canopy
+                const hrWallSignTex = createSignTexture('HUMAN RESOURCES\nSTAFF ENTRANCE', '#0f2f4a', '#f8fafc', 512, 120, 34);
+                const hrWallSign = new THREE.Mesh(
+                    new THREE.PlaneGeometry(1.72, 0.5),
+                    new THREE.MeshBasicMaterial({ map: hrWallSignTex })
+                );
+                hrWallSign.position.set(hrEntrFaceX + 0.15, 3.46, hrEntrZ);
+                hrWallSign.rotation.y = Math.PI / 2;
+                hrEntrance.add(hrWallSign);
+
+                // Warm canopy downlights
+                [-0.86, 0.86].forEach(lz => {
+                    const dl = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.045, 0.16), new THREE.MeshBasicMaterial({ color: 0xfff2cc }));
+                    dl.position.set(hrEntrFaceX + 1.12, 2.95, hrEntrZ + lz);
+                    hrEntrance.add(dl);
+                });
+                const hrEntrLight = new THREE.PointLight(0xffe2b0, 0.85, 7.5);
+                hrEntrLight.position.set(hrEntrFaceX + 1.0, 2.6, hrEntrZ);
+                hrEntrance.add(hrEntrLight);
+
+                // Threshold step + mat
+                const hrEntrStep = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.12, hrEntrW + 0.7), concreteMat);
+                hrEntrStep.position.set(hrEntrFaceX + 0.55, 0.06, hrEntrZ);
+                hrEntrStep.receiveShadow = true;
+                hrEntrance.add(hrEntrStep);
+
+                const hrEntrMat = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.82, 1.32),
+                    new THREE.MeshStandardMaterial({ color: 0x263445, roughness: 0.96 })
+                );
+                hrEntrMat.position.set(hrEntrFaceX + 1.08, 0.122, hrEntrZ);
+                hrEntrMat.rotation.x = -Math.PI / 2;
+                hrEntrance.add(hrEntrMat);
+
+                group.add(hrEntrance);
+            }
+
+            // =========================================================================
+            // ASSEMBLY HUT ("HUT") WITH RAISED TIMBER STAGE
+            // =========================================================================
+            {
+                const asGroup = new THREE.Group();
+                asGroup.position.set(-7.4, 0, -20.0);
+
+                const asSteelMat = new THREE.MeshStandardMaterial({ color: 0x223244, metalness: 0.6, roughness: 0.35 });
+                const asDeckMat = new THREE.MeshStandardMaterial({ map: createStageDeckTexture(), roughness: 0.62, metalness: 0.05 });
+                const asSkirtMat = new THREE.MeshStandardMaterial({ color: 0x1d3145, metalness: 0.25, roughness: 0.62 });
+                const asTrimMat = new THREE.MeshStandardMaterial({ color: 0xc9d4df, metalness: 0.7, roughness: 0.28 });
+                const asPlinthMat = new THREE.MeshStandardMaterial({ color: 0x6b7280, roughness: 0.86 });
+
+                // ----- Raised stage / podium deck -----
+                const asStageW = 3.2;
+                const asStageD = 4.4;
+                const asStageH = 0.42;
+
+                const asPlinth = new THREE.Mesh(new THREE.BoxGeometry(asStageW + 0.16, 0.3, asStageD + 0.16), asPlinthMat);
+                asPlinth.position.set(0, 0.15, 0);
+                asPlinth.receiveShadow = true;
+                asPlinth.castShadow = true;
+                asGroup.add(asPlinth);
+
+                const asDeck = new THREE.Mesh(new THREE.BoxGeometry(asStageW, 0.13, asStageD), asDeckMat);
+                asDeck.position.set(0, 0.365, 0);
+                asDeck.castShadow = true;
+                asDeck.receiveShadow = true;
+                asGroup.add(asDeck);
+
+                const asEdgeTrim = new THREE.Mesh(new THREE.BoxGeometry(asStageW + 0.1, 0.055, asStageD + 0.1), asTrimMat);
+                asEdgeTrim.position.set(0, 0.435, 0);
+                asGroup.add(asEdgeTrim);
+
+                // Skirt ribs around the three closed sides
+                for (let i = -4; i <= 4; i++) {
+                    const rib = new THREE.Mesh(new THREE.BoxGeometry(0.055, 0.24, 0.035), asTrimMat);
+                    rib.position.set(i * 0.34, 0.19, asStageD / 2 + 0.015);
+                    asGroup.add(rib);
+                    const ribBack = rib.clone();
+                    ribBack.position.z = -asStageD / 2 - 0.015;
+                    asGroup.add(ribBack);
+                }
+                for (let i = -5; i <= 5; i++) {
+                    const ribSide = new THREE.Mesh(new THREE.BoxGeometry(0.035, 0.24, 0.055), asTrimMat);
+                    ribSide.position.set(-asStageW / 2 - 0.015, 0.19, i * 0.36);
+                    asGroup.add(ribSide);
+                }
+
+                // Three access steps on the courtyard (east) side
+                for (let s = 0; s < 3; s++) {
+                    const stepH = 0.14 * (s + 1);
+                    const stepX = 1.6 + 0.28 * (1.5 - s);
+                    const step = new THREE.Mesh(new THREE.BoxGeometry(0.3, stepH, 2.4), asPlinthMat);
+                    step.position.set(stepX, stepH / 2, 0);
+                    step.castShadow = true;
+                    step.receiveShadow = true;
+                    asGroup.add(step);
+
+                    const nose = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.03, 2.4), asTrimMat);
+                    nose.position.set(stepX + 0.15, stepH + 0.005, 0);
+                    asGroup.add(nose);
+                }
+
+                // ----- Six posts + pitched blue roof (ridge runs east-west) -----
+                const asPostH = 3.65;
+                [[-2.7, -2.35], [-2.7, 2.35], [0, -2.35], [0, 2.35], [2.7, -2.35], [2.7, 2.35]].forEach(([px, pz]) => {
+                    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.12, asPostH, 10), asSteelMat);
+                    post.position.set(px, asPostH / 2, pz);
+                    post.castShadow = true;
+                    asGroup.add(post);
+
+                    const base = new THREE.Mesh(new THREE.CylinderGeometry(0.19, 0.22, 0.14, 10), asSteelMat);
+                    base.position.set(px, 0.07, pz);
+                    asGroup.add(base);
+                });
+
+                const asHalfD = 2.9;
+                const asEaveY = 3.65;
+                const asRidgeY = 4.62;
+                const asPitch = Math.atan2(asRidgeY - asEaveY, asHalfD);
+                const asSlopeLen = Math.hypot(asHalfD, asRidgeY - asEaveY) + 0.28;
+
+                [-1, 1].forEach(side => {
+                    const roofSlope = new THREE.Mesh(new THREE.BoxGeometry(6.9, 0.14, asSlopeLen), blueRoofMat);
+                    roofSlope.position.set(0, (asEaveY + asRidgeY) / 2, side * (asHalfD / 2));
+                    roofSlope.rotation.x = side * asPitch;
+                    roofSlope.castShadow = true;
+                    asGroup.add(roofSlope);
+
+                    const roofEdge = new THREE.Mesh(new THREE.BoxGeometry(6.9, 0.13, 0.12), silverPanelMat);
+                    roofEdge.position.set(0, asEaveY, side * asHalfD);
+                    asGroup.add(roofEdge);
+                });
+
+                const asRidgeBeam = new THREE.Mesh(new THREE.BoxGeometry(6.94, 0.17, 0.18), whiteWallMat);
+                asRidgeBeam.position.set(0, asRidgeY + 0.03, 0);
+                asGroup.add(asRidgeBeam);
+
+                // Gable trusses + barge boards
+                [-3.2, 3.2].forEach(gx => {
+                    const tie = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.14, 5.8), whiteWallMat);
+                    tie.position.set(gx, asEaveY, 0);
+                    asGroup.add(tie);
+
+                    const king = new THREE.Mesh(new THREE.BoxGeometry(0.1, asRidgeY - asEaveY, 0.1), whiteWallMat);
+                    king.position.set(gx, asEaveY + (asRidgeY - asEaveY) / 2, 0);
+                    asGroup.add(king);
+
+                    [-1, 1].forEach(side => {
+                        const barge = new THREE.Mesh(new THREE.BoxGeometry(0.1, 0.13, asSlopeLen), whiteWallMat);
+                        barge.position.set(gx, (asEaveY + asRidgeY) / 2, side * (asHalfD / 2));
+                        barge.rotation.x = side * asPitch;
+                        asGroup.add(barge);
+                    });
+                });
+
+                // Eave beams connecting the posts
+                [-2.35, 2.35].forEach(pz => {
+                    const eave = new THREE.Mesh(new THREE.BoxGeometry(5.9, 0.14, 0.12), whiteWallMat);
+                    eave.position.set(0, asEaveY, pz);
+                    asGroup.add(eave);
+                });
+
+                // Warm ceiling lamps
+                [-2.0, 0, 2.0].forEach(lx => {
+                    const lamp = new THREE.Mesh(new THREE.BoxGeometry(1.05, 0.06, 0.16), new THREE.MeshBasicMaterial({ color: 0xfef08a }));
+                    lamp.position.set(lx, asRidgeY - 0.22, 0);
+                    asGroup.add(lamp);
+                });
+                const asLight = new THREE.PointLight(0xffe2b0, 0.9, 10);
+                asLight.position.set(0, 3.4, 0);
+                asGroup.add(asLight);
+
+                // Gable banner (east, facing the courtyard)
+                const asBannerTex = createSignTexture('K.D.U. GROUP  •  ASSEMBLY STAGE', '#123a63', '#e0f2fe', 768, 72, 30);
+                const asBanner = new THREE.Mesh(
+                    new THREE.PlaneGeometry(4.5, 0.42),
+                    new THREE.MeshBasicMaterial({ map: asBannerTex, side: THREE.DoubleSide })
+                );
+                asBanner.position.set(3.26, asEaveY + 0.5, 0);
+                asBanner.rotation.y = Math.PI / 2;
+                asGroup.add(asBanner);
+
+                const asBannerBackTex = createSignTexture('ATTENDANCE  •  BRIEFINGS  •  ANNOUNCEMENTS', '#123a63', '#fef9c3', 768, 72, 27);
+                const asBannerBack = new THREE.Mesh(
+                    new THREE.PlaneGeometry(4.5, 0.42),
+                    new THREE.MeshBasicMaterial({ map: asBannerBackTex, side: THREE.DoubleSide })
+                );
+                asBannerBack.position.set(-3.26, asEaveY + 0.5, 0);
+                asBannerBack.rotation.y = -Math.PI / 2;
+                asBannerBack.scale.x = -1;
+                asGroup.add(asBannerBack);
+
+                // ----- Lectern / podium on the stage -----
+                const asPodium = new THREE.Group();
+                asPodium.position.set(-0.75, asStageH, 0.35);
+
+                const podiumBase = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.1, 0.5), asSteelMat);
+                podiumBase.position.y = 0.05;
+                asPodium.add(podiumBase);
+
+                const podiumBody = new THREE.Mesh(new THREE.BoxGeometry(0.52, 1.0, 0.4), asDeckMat);
+                podiumBody.position.y = 0.6;
+                podiumBody.castShadow = true;
+                asPodium.add(podiumBody);
+
+                const podiumTop = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.08, 0.52), asDeckMat);
+                podiumTop.position.set(-0.02, 1.13, 0.03);
+                podiumTop.rotation.x = -0.2;
+                podiumTop.castShadow = true;
+                asPodium.add(podiumTop);
+
+                const podiumPlate = new THREE.Mesh(
+                    new THREE.PlaneGeometry(0.36, 0.13),
+                    new THREE.MeshBasicMaterial({ map: createSignTexture('K.D.U.', '#123a63', '#facc15', 256, 80, 42) })
+                );
+                podiumPlate.position.set(0.262, 0.78, 0);
+                podiumPlate.rotation.y = Math.PI / 2;
+                asPodium.add(podiumPlate);
+
+                const micStem = new THREE.Mesh(new THREE.CylinderGeometry(0.012, 0.012, 0.38, 8), asSteelMat);
+                micStem.position.set(0.16, 1.34, 0.02);
+                micStem.rotation.z = -0.25;
+                asPodium.add(micStem);
+
+                const micHead = new THREE.Mesh(new THREE.SphereGeometry(0.045, 10, 8), new THREE.MeshStandardMaterial({ color: 0x111827, roughness: 0.5 }));
+                micHead.position.set(0.21, 1.53, 0.02);
+                asPodium.add(micHead);
+
+                asGroup.add(asPodium);
+
+                // Planter boxes flanking the steps
+                [-2.75, 2.75].forEach(pz => {
+                    const planter = new THREE.Mesh(new THREE.BoxGeometry(0.72, 0.62, 0.72), whiteWallMat);
+                    planter.position.set(2.55, 0.31, pz);
+                    planter.castShadow = true;
+                    asGroup.add(planter);
+
+                    const soil = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.05, 0.62), new THREE.MeshStandardMaterial({ color: 0x4b3a2a, roughness: 1 }));
+                    soil.position.set(2.55, 0.63, pz);
+                    asGroup.add(soil);
+
+                    for (let f = 0; f < 6; f++) {
+                        const leafBall = new THREE.Mesh(
+                            new THREE.SphereGeometry(0.19 + (f % 3) * 0.045, 10, 8),
+                            f % 2 === 0 ? brightLeafMat : leafMat
+                        );
+                        const fa = (f / 6) * Math.PI * 2;
+                        leafBall.position.set(2.55 + Math.cos(fa) * 0.16, 0.78 + (f % 2) * 0.14, pz + Math.sin(fa) * 0.16);
+                        leafBall.scale.set(1.15, 0.9, 1.15);
+                        leafBall.castShadow = true;
+                        asGroup.add(leafBall);
+                    }
+                });
+
+                // Soft stage edge lighting
+                [-2.2, 2.2].forEach(pz => {
+                    const edgeLight = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.035, 0.06), new THREE.MeshBasicMaterial({ color: 0xfde68a }));
+                    edgeLight.position.set(1.63, 0.06, pz);
+                    asGroup.add(edgeLight);
+                });
+
+                group.add(asGroup);
+            }
 
             // =========================================================================
             // LEFT-OF-HR DOWNWARD ROAD -> REAR & UPPER 3-FLOOR FACTORY WING + HUT ROOF
