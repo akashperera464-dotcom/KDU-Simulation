@@ -1602,6 +1602,83 @@
             hrRoadEntryGround.receiveShadow = true;
             group.add(hrRoadEntryGround);
 
+            // =========================================================================
+            // HR FORECOURT PAVING — fills the two open strips in front of the HR Office
+            // (the sky was showing through here and looked like mirror-like bands).
+            // Replaced with real pavement, a stepped edge and darker paving strips.
+            // =========================================================================
+            {
+                const fcPaverMat = new THREE.MeshStandardMaterial({
+                    map: createPlazaPaverTexture(),
+                    roughness: 0.92,
+                    metalness: 0.02
+                });
+                const fcKerfMat = new THREE.MeshStandardMaterial({ color: 0x8a8375, roughness: 0.95 });
+                const fcStripMat = new THREE.MeshStandardMaterial({ color: 0x6d675c, roughness: 0.96 });
+                const fcStepMat = new THREE.MeshStandardMaterial({ color: 0x9d968a, roughness: 0.94 });
+
+                // --- A. Forecourt in front of the HR Office (replaces the big open strip) ---
+                const fcA = new THREE.Mesh(new THREE.BoxGeometry(5.15, 0.1, 12.5), fcPaverMat);
+                fcA.position.set(-12.95, 0.05, -18.5);
+                fcA.receiveShadow = true;
+                group.add(fcA);
+
+                // Kerb border so the paving reads as a built surface, not a flat sheet
+                const fcABorder = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 12.6), fcKerfMat);
+                fcABorder.position.set(-15.46, 0.08, -18.5);
+                fcABorder.receiveShadow = true;
+                group.add(fcABorder);
+
+                // Graduated entrance steps from the courtyard onto the forecourt
+                [[-10.42, 0.15, 0.4], [-10.72, 0.11, 0.24], [-10.98, 0.07, 0.2]].forEach(([sx, sh, sw]) => {
+                    const st = new THREE.Mesh(new THREE.BoxGeometry(sw, sh, 12.4), fcStepMat);
+                    st.position.set(sx, sh / 2 + 0.01, -18.5);
+                    st.castShadow = true;
+                    st.receiveShadow = true;
+                    group.add(st);
+
+                    const nose = new THREE.Mesh(new THREE.BoxGeometry(sw * 0.9, 0.02, 12.4), fcStripMat);
+                    nose.position.set(sx, sh + 0.015, -18.5);
+                    group.add(nose);
+                });
+
+                // Dark inlay bands (pavement strips) running across the forecourt
+                [-23.7, -21.2, -18.7, -16.2, -13.7].forEach(sz => {
+                    const band = new THREE.Mesh(new THREE.BoxGeometry(5.05, 0.014, 0.24), fcStripMat);
+                    band.position.set(-12.95, 0.106, sz);
+                    group.add(band);
+                });
+                [-14.6, -11.7].forEach(sx => {
+                    const band = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.014, 12.4), fcStripMat);
+                    band.position.set(sx, 0.106, -18.5);
+                    group.add(band);
+                });
+
+                // --- B. Paved apron around the attendance kiosk / gate side ---
+                const fcB = new THREE.Mesh(new THREE.BoxGeometry(5.15, 0.1, 5.1), fcPaverMat);
+                fcB.position.set(-12.95, 0.05, -5.65);
+                fcB.receiveShadow = true;
+                group.add(fcB);
+
+                const fcBBorder = new THREE.Mesh(new THREE.BoxGeometry(0.18, 0.16, 5.2), fcKerfMat);
+                fcBBorder.position.set(-15.46, 0.08, -5.65);
+                group.add(fcBBorder);
+
+                const fcBStep = new THREE.Mesh(new THREE.BoxGeometry(0.4, 0.15, 5.0), fcStepMat);
+                fcBStep.position.set(-10.42, 0.085, -5.65);
+                fcBStep.castShadow = true;
+                fcBStep.receiveShadow = true;
+                group.add(fcBStep);
+
+                const fcBStrip = new THREE.Mesh(new THREE.BoxGeometry(5.05, 0.014, 0.24), fcStripMat);
+                fcBStrip.position.set(-12.95, 0.106, -6.9);
+                group.add(fcBStrip);
+
+                const fcBStrip2 = new THREE.Mesh(new THREE.BoxGeometry(5.05, 0.014, 0.24), fcStripMat);
+                fcBStrip2.position.set(-12.95, 0.106, -4.4);
+                group.add(fcBStrip2);
+            }
+
             // 2. South Entrance & Gate Apron Tarmac (south of z = -3.1, covers Gate, ATM & South-West)
             const southGateGround = new THREE.Mesh(new THREE.PlaneGeometry(140, 42), asphaltMat);
             southGateGround.rotation.x = -Math.PI / 2;
