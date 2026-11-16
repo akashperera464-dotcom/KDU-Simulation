@@ -2122,11 +2122,239 @@
             lawn.position.y = 0.16;
             gardenIsland.add(lawn);
 
-            for (let sz = -4.0; sz <= 4.0; sz += 1.15) {
-                [-1.35, 1.35].forEach(sx => {
-                    const shrub = new THREE.Mesh(new THREE.DodecahedronGeometry(0.42, 0), crotonRedMat);
-                    shrub.position.set(sx, 0.48, sz);
-                    gardenIsland.add(shrub);
+            // ---- Landscaped flower bed: stone coping, mulch and realistic flowering shrubs ----
+            {
+                // Light stone coping around the planter edge
+                const copingMat = new THREE.MeshStandardMaterial({ color: 0xc7c1b4, roughness: 0.88, metalness: 0.02 });
+                [-1.9, 1.9].forEach(cx => {
+                    const coping = new THREE.Mesh(new THREE.BoxGeometry(0.24, 0.1, 9.8), copingMat);
+                    coping.position.set(cx, 0.27, 0);
+                    coping.castShadow = true;
+                    gardenIsland.add(coping);
+                });
+                [-4.82, 4.82].forEach(cz => {
+                    const coping = new THREE.Mesh(new THREE.BoxGeometry(4.0, 0.1, 0.24), copingMat);
+                    coping.position.set(0, 0.27, cz);
+                    coping.castShadow = true;
+                    gardenIsland.add(coping);
+                });
+
+                // Rich dark mulch planting strip inside the grass border
+                const mulchMat = new THREE.MeshStandardMaterial({ color: 0x4a3626, roughness: 1.0 });
+                const mulch = new THREE.Mesh(new THREE.BoxGeometry(3.16, 0.07, 8.9), mulchMat);
+                mulch.position.y = 0.335;
+                mulch.receiveShadow = true;
+                gardenIsland.add(mulch);
+
+                // ---- Shared geometries & materials (built once, reused by every shrub) ----
+                const soilTop = 0.37;
+                const foliageGeos = [
+                    new THREE.SphereGeometry(0.22, 9, 7),
+                    new THREE.SphereGeometry(0.17, 9, 7),
+                    new THREE.SphereGeometry(0.13, 8, 6)
+                ];
+                const leafGeos = [
+                    new THREE.SphereGeometry(0.14, 7, 5),
+                    new THREE.SphereGeometry(0.11, 7, 5)
+                ];
+                const stemGeo = new THREE.CylinderGeometry(0.016, 0.024, 0.34, 6);
+                const leafMats = [
+                    new THREE.MeshStandardMaterial({ color: 0x14532d, roughness: 0.82 }),
+                    new THREE.MeshStandardMaterial({ color: 0x1f6b3a, roughness: 0.8 }),
+                    new THREE.MeshStandardMaterial({ color: 0x2e8b4f, roughness: 0.78 }),
+                    new THREE.MeshStandardMaterial({ color: 0x4c9a52, roughness: 0.76 }),
+                    new THREE.MeshStandardMaterial({ color: 0x74a83c, roughness: 0.76 })
+                ];
+                const darkLeafMat = new THREE.MeshStandardMaterial({ color: 0x0f4227, roughness: 0.86 });
+
+                const petalGeo = new THREE.SphereGeometry(0.052, 6, 4);
+                const budGeo = new THREE.SphereGeometry(0.032, 6, 4);
+                const centreGeo = new THREE.SphereGeometry(0.026, 6, 4);
+                const petalMats = {
+                    rose: new THREE.MeshStandardMaterial({ color: 0xdc2626, roughness: 0.42 }),
+                    crimson: new THREE.MeshStandardMaterial({ color: 0x9f1239, roughness: 0.45 }),
+                    pink: new THREE.MeshStandardMaterial({ color: 0xf472b6, roughness: 0.42 }),
+                    magenta: new THREE.MeshStandardMaterial({ color: 0xd946ef, roughness: 0.45 }),
+                    marigold: new THREE.MeshStandardMaterial({ color: 0xf59e0b, roughness: 0.44 }),
+                    golden: new THREE.MeshStandardMaterial({ color: 0xfacc15, roughness: 0.42 }),
+                    white: new THREE.MeshStandardMaterial({ color: 0xf8fafc, roughness: 0.5 }),
+                    coral: new THREE.MeshStandardMaterial({ color: 0xfb7185, roughness: 0.44 }),
+                    violet: new THREE.MeshStandardMaterial({ color: 0xa78bfa, roughness: 0.46 })
+                };
+                const centreMat = new THREE.MeshStandardMaterial({ color: 0xfde047, roughness: 0.5, emissive: 0x6b5300, emissiveIntensity: 0.12 });
+
+                let flowerSeed = 20240619;
+                const rnd = () => {
+                    flowerSeed = (flowerSeed * 1664525 + 1013904223) >>> 0;
+                    return flowerSeed / 4294967296;
+                };
+
+                const blossomGeoCache = {};
+                const makeBlossom = (matKey) => {
+                    const flower = new THREE.Group();
+                    const petalCount = 5;
+                    for (let pI = 0; pI < petalCount; pI++) {
+                        const petal = new THREE.Mesh(petalGeo, petalMats[matKey]);
+                        const ang = (pI / petalCount) * Math.PI * 2;
+                        petal.position.set(Math.cos(ang) * 0.055, 0, Math.sin(ang) * 0.055);
+                        petal.scale.set(1, 0.42, 1);
+                        petal.rotation.y = -ang;
+                        flower.add(petal);
+                    }
+                    const centre = new THREE.Mesh(centreGeo, centreMat);
+                    centre.position.y = 0.008;
+                    flower.add(centre);
+                    return flower;
+                };
+
+                // Build one flowering shrub: wooden stems, layered foliage and petals
+                const buildShrub = (px, pz, type) => {
+                    const bush = new THREE.Group();
+                    bush.position.set(px, soilTop, pz);
+                    bush.rotation.y = rnd() * Math.PI * 2;
+
+                    const scale = 0.85 + rnd() * 0.3;
+                    bush.scale.setScalar(scale);
+
+                    // Stems
+                    for (let st = 0; st < 3; st++) {
+                        const stem = new THREE.Mesh(stemGeo, trunkMat);
+                        const a = (st / 3) * Math.PI * 2 + rnd();
+                        stem.position.set(Math.cos(a) * 0.05, 0.15, Math.sin(a) * 0.05);
+                        stem.rotation.z = Math.cos(a) * 0.16;
+                        stem.rotation.x = Math.sin(a) * 0.16;
+                        bush.add(stem);
+                    }
+
+                    // Layered foliage canopy
+                    const clumps = 9;
+                    for (let c = 0; c < clumps; c++) {
+                        const a = c * 2.399963;
+                        const r = 0.13 + Math.sqrt((c + 0.5) / clumps) * 0.22;
+                        const geo = foliageGeos[c % 3];
+                        const leaves = new THREE.Mesh(geo, leafMats[(c + type) % leafMats.length]);
+                        leaves.position.set(
+                            Math.cos(a) * r,
+                            0.3 + (c % 4) * 0.055 + rnd() * 0.05,
+                            Math.sin(a) * r
+                        );
+                        leaves.scale.set(1.14, 0.82 + rnd() * 0.22, 1.05);
+                        leaves.castShadow = true;
+                        bush.add(leaves);
+                    }
+
+                    // Broad leaves poking out of the canopy base
+                    for (let lf = 0; lf < 5; lf++) {
+                        const a = rnd() * Math.PI * 2;
+                        const leaf = new THREE.Mesh(leafGeos[lf % 2], darkLeafMat);
+                        leaf.position.set(Math.cos(a) * 0.3, 0.18 + rnd() * 0.08, Math.sin(a) * 0.3);
+                        leaf.scale.set(1.5, 0.35, 0.8);
+                        leaf.rotation.set(0.35, -a, rnd() * 0.3);
+                        bush.add(leaf);
+                    }
+
+                    // Flower palette per shrub type
+                    const palettes = [
+                        ['rose', 'crimson'],
+                        ['marigold', 'golden'],
+                        ['pink', 'coral'],
+                        ['white', 'violet'],
+                        ['magenta', 'pink']
+                    ];
+                    const palette = palettes[type % palettes.length];
+
+                    // Blooms across the canopy surface
+                    const bloomCount = 15 + Math.floor(rnd() * 6);
+                    for (let b = 0; b < bloomCount; b++) {
+                        const a = rnd() * Math.PI * 2;
+                        const polar = 0.35 + rnd() * 1.05;
+                        const rr = 0.2 + rnd() * 0.2;
+                        const blossom = makeBlossom(palette[b % palette.length]);
+                        blossom.position.set(
+                            Math.cos(a) * Math.cos(polar) * rr,
+                            0.34 + Math.sin(polar) * 0.24 + rnd() * 0.08,
+                            Math.sin(a) * Math.cos(polar) * rr
+                        );
+                        const bs = 0.8 + rnd() * 0.55;
+                        blossom.scale.setScalar(bs);
+                        blossom.rotation.set(rnd() * 0.6, rnd() * Math.PI, rnd() * 0.6);
+                        bush.add(blossom);
+                    }
+
+                    // Unopened buds near the top
+                    for (let bd = 0; bd < 4; bd++) {
+                        const bud = new THREE.Mesh(budGeo, petalMats[palette[bd % palette.length]]);
+                        const a = rnd() * Math.PI * 2;
+                        bud.position.set(Math.cos(a) * 0.18, 0.5 + rnd() * 0.1, Math.sin(a) * 0.18);
+                        bush.add(bud);
+                    }
+
+                    gardenIsland.add(bush);
+                };
+
+                // Two staggered rows of flowering shrubs along the island
+                const rowZ = [-3.85, -2.55, -1.25, 0.05, 1.35, 2.65, 3.85];
+                rowZ.forEach((zPos, idx) => {
+                    buildShrub(-1.05 + (idx % 2) * 0.1, zPos, idx % 5);
+                    buildShrub(1.05 - (idx % 2) * 0.1, zPos - 0.28, (idx + 2) % 5);
+                });
+
+                // Low marigold border along both long edges
+                for (let zPos = -4.05; zPos <= 4.05; zPos += 0.62) {
+                    [-1.52, 1.52].forEach((bx, side) => {
+                        const tuft = new THREE.Group();
+                        tuft.position.set(bx, soilTop + 0.02, zPos);
+                        for (let lf = 0; lf < 3; lf++) {
+                            const leaf = new THREE.Mesh(leafGeos[lf % 2], leafMats[(lf + side) % 4]);
+                            leaf.position.set((rnd() - 0.5) * 0.12, 0.05 + lf * 0.03, (rnd() - 0.5) * 0.12);
+                            leaf.scale.set(1.1, 0.45, 1.1);
+                            tuft.add(leaf);
+                        }
+                        const bloom = makeBlossom(side === 0 ? 'golden' : 'marigold');
+                        bloom.position.y = 0.17;
+                        bloom.scale.setScalar(0.62);
+                        tuft.add(bloom);
+                        const bloom2 = makeBlossom(side === 0 ? 'marigold' : 'golden');
+                        bloom2.position.set(0.08, 0.12, -0.06);
+                        bloom2.scale.setScalar(0.5);
+                        tuft.add(bloom2);
+                        gardenIsland.add(tuft);
+                    });
+                }
+
+                // Ornamental grass tufts at the four corners
+                [[-1.4, -4.15], [1.4, -4.15], [-1.4, 4.15], [1.4, 4.15]].forEach(([gx, gz]) => {
+                    const grassTuft = new THREE.Group();
+                    grassTuft.position.set(gx, soilTop, gz);
+                    for (let b = 0; b < 9; b++) {
+                        const blade = new THREE.Mesh(
+                            new THREE.ConeGeometry(0.022, 0.42 + rnd() * 0.22, 4),
+                            leafMats[4]
+                        );
+                        const ba = (b / 9) * Math.PI * 2;
+                        blade.position.set(Math.cos(ba) * 0.05, 0.2, Math.sin(ba) * 0.05);
+                        blade.rotation.set(Math.sin(ba) * 0.28, ba, Math.cos(ba) * 0.28);
+                        grassTuft.add(blade);
+                    }
+                    gardenIsland.add(grassTuft);
+                });
+
+                // Two small cycad accents at the island ends
+                [-4.3, 4.3].forEach((cz, ci) => {
+                    const cycad = new THREE.Group();
+                    cycad.position.set(0, 0.3, cz);
+                    const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.14, 0.34, 8), barkLightMat);
+                    trunk.position.y = 0.17;
+                    cycad.add(trunk);
+                    for (let f = 0; f < 9; f++) {
+                        const frond = new THREE.Mesh(new THREE.BoxGeometry(0.08, 0.035, 0.52), brightLeafMat);
+                        const fa = (f / 9) * Math.PI * 2 + ci * 0.3;
+                        frond.position.set(Math.cos(fa) * 0.14, 0.46, Math.sin(fa) * 0.14);
+                        frond.rotation.set(0.44, -fa, 0);
+                        frond.castShadow = true;
+                        cycad.add(frond);
+                    }
+                    gardenIsland.add(cycad);
                 });
             }
 
