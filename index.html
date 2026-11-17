@@ -103,7 +103,7 @@
                 </svg>
                 Office Walkthrough Map
             </h2>
-            <span id="zone-count-badge" class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">7 Zones</span>
+            <span id="zone-count-badge" class="text-xs bg-slate-800 text-slate-300 px-2 py-0.5 rounded-full">8 Zones</span>
         </div>
 
         <!-- Projection Mode Selector -->
@@ -171,7 +171,7 @@
             </button>
             <div class="px-2 text-center">
                 <div class="text-[10px] uppercase tracking-wider text-slate-400">Location</div>
-                <div id="hud-zone-counter" class="text-xs font-bold text-white">1 / 7</div>
+                <div id="hud-zone-counter" class="text-xs font-bold text-white">1 / 8</div>
             </div>
             <button id="btn-next-zone" class="px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-40 text-xs font-medium flex items-center gap-1 transition-all">
                 <span>Next</span>
@@ -1603,15 +1603,23 @@
             });
             zones.push({
                 id: 'sloping-road-factory',
-                name: '6. East Downhill Road & 3-Floor Factory',
+                name: '6. East Downhill Road beside Main Office (Photo 6)',
                 type: 'built-in-master',
-                startPos: new THREE.Vector3(19.2, 1.7, -61.5),
-                startYaw: 0,
+                startPos: new THREE.Vector3(18.6, 1.7, -62.5),
+                startYaw: 0.05,
+                thumbnail: null
+            });
+            zones.push({
+                id: 'factory-loading-yard',
+                name: '7. Lower Factory Yard, Sheds & Sack Trailer (Photo 7)',
+                type: 'built-in-master',
+                startPos: new THREE.Vector3(19.4, 1.7, -83.0),
+                startYaw: -0.3,
                 thumbnail: null
             });
             zones.push({
                 id: 'photo-5-headoffice',
-                name: '7. 3-Floor Main Head Office & Lobby (Photo 5)',
+                name: '8. 3-Floor Main Head Office & Lobby (Photo 5)',
                 type: 'built-in-master',
                 startPos: new THREE.Vector3(4.5, 1.7, -68.5),
                 startYaw: 0,
@@ -1622,11 +1630,17 @@
         // --- TERRAIN ELEVATION HELPER (SUPPORTS BOTH DOWNHILL ROADS) ---
         function getGroundElevation(x, z) {
             // 1. East Downhill Sloping Road beside Main Head Office (x = 16.0 to 22.4, z = -64.0 down to -88.0)
+            //    + steel-rail stairway along the stone wall (x = 16.0..17.9) and the lower factory yard
+            if (x >= 16.0 && x <= 17.9 && z <= -76.8 && z >= -88.0) {
+                if (z >= -78.1) return 0.0;
+                const i = Math.floor((z + 88.0) / 0.9) + 1;
+                return -3.0 + 0.3 * i;
+            }
             if (x >= 16.0 && x <= 22.4 && z <= -64.0 && z >= -88.0) {
                 const t = (-64.0 - z) / 24.0;
                 return -t * 3.0;
             }
-            if (x >= 16.0 && x <= 46.0 && z < -88.0 && z >= -112.0) {
+            if (x >= 16.0 && x <= 60.0 && z < -88.0 && z >= -116.0) {
                 return -3.0;
             }
 
@@ -1660,6 +1674,699 @@
             }
 
             return 0.0;
+        }
+
+        // =====================================================================
+        // EAST DESCENT — rebuilt from the field photos (Main Head Office -> downhill
+        // service road -> 3-storey factory, loading sheds & vehicles)
+        // =====================================================================
+        function createRubbleStoneTexture() {
+            const c = document.createElement('canvas');
+            c.width = 512; c.height = 256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#16191c';
+            ctx.fillRect(0, 0, 512, 256);
+            let seed = 11;
+            const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+            for (let row = 0; row < 8; row++) {
+                let x = -rnd() * 50;
+                const y0 = row * 32;
+                while (x < 512) {
+                    const w = 38 + rnd() * 56;
+                    const h = 25 + rnd() * 8;
+                    const g = 46 + Math.floor(rnd() * 50);
+                    ctx.fillStyle = `rgb(${g},${g + 3},${g + 6})`;
+                    ctx.beginPath();
+                    ctx.moveTo(x + 3 + rnd() * 6, y0 + 3 + rnd() * 5);
+                    ctx.lineTo(x + w - 3 - rnd() * 6, y0 + 2 + rnd() * 6);
+                    ctx.lineTo(x + w - 2 - rnd() * 6, y0 + h - 2 - rnd() * 5);
+                    ctx.lineTo(x + 4 + rnd() * 6, y0 + h - 1 - rnd() * 5);
+                    ctx.closePath();
+                    ctx.fill();
+                    ctx.strokeStyle = 'rgba(170,180,190,0.16)';
+                    ctx.lineWidth = 1.5;
+                    ctx.stroke();
+                    x += w;
+                }
+            }
+            for (let i = 0; i < 260; i++) {
+                ctx.fillStyle = `rgba(${70 + rnd() * 30},${88 + rnd() * 30},${55},${0.08 + rnd() * 0.14})`;
+                ctx.fillRect(rnd() * 512, rnd() * 256, 3 + rnd() * 9, 2 + rnd() * 5);
+            }
+            const t = new THREE.CanvasTexture(c);
+            t.wrapS = t.wrapT = THREE.RepeatWrapping;
+            return t;
+        }
+
+        function createFrondTexture() {
+            const c = document.createElement('canvas');
+            c.width = 128; c.height = 512;
+            const ctx = c.getContext('2d');
+            ctx.clearRect(0, 0, 128, 512);
+            ctx.strokeStyle = '#55702d';
+            ctx.lineWidth = 6;
+            ctx.beginPath(); ctx.moveTo(64, 512); ctx.lineTo(64, 0); ctx.stroke();
+            for (let y = 508; y > 6; y -= 5) {
+                const prog = 1 - y / 512;
+                const len = 14 + 50 * Math.sin(Math.min(1, prog * 1.1 + 0.08) * Math.PI * 0.85);
+                const shade = 70 + Math.floor((y % 20) * 2);
+                ctx.strokeStyle = `rgb(${shade * 0.5},${shade + 45},${shade * 0.32})`;
+                ctx.lineWidth = 4.5;
+                [-1, 1].forEach(sd => {
+                    ctx.beginPath();
+                    ctx.moveTo(64, y);
+                    ctx.lineTo(64 + sd * len, y - 22 - prog * 8);
+                    ctx.stroke();
+                });
+            }
+            return new THREE.CanvasTexture(c);
+        }
+
+        function createCorrugatedSheetTexture(base, rustAmount) {
+            const c = document.createElement('canvas');
+            c.width = 256; c.height = 256;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = base;
+            ctx.fillRect(0, 0, 256, 256);
+            for (let x = 0; x < 256; x += 16) {
+                const g = ctx.createLinearGradient(x, 0, x + 16, 0);
+                g.addColorStop(0, 'rgba(255,255,255,0.22)');
+                g.addColorStop(0.5, 'rgba(0,0,0,0.0)');
+                g.addColorStop(1, 'rgba(0,0,0,0.28)');
+                ctx.fillStyle = g;
+                ctx.fillRect(x, 0, 16, 256);
+            }
+            let seed = 5;
+            const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+            for (let i = 0; i < 90 * rustAmount; i++) {
+                ctx.fillStyle = `rgba(${120 + rnd() * 50},${66 + rnd() * 30},${34},${0.12 + rnd() * 0.3})`;
+                ctx.fillRect(rnd() * 256, rnd() * 256, 4 + rnd() * 26, 6 + rnd() * 50);
+            }
+            const t = new THREE.CanvasTexture(c);
+            t.wrapS = t.wrapT = THREE.RepeatWrapping;
+            return t;
+        }
+
+        function createGreyFactoryFacadeTexture() {
+            const W = 1536, H = 692, ppm = 64;
+            const c = document.createElement('canvas');
+            c.width = W; c.height = H;
+            const ctx = c.getContext('2d');
+            ctx.fillStyle = '#9ba3a9';
+            ctx.fillRect(0, 0, W, H);
+            let seed = 3;
+            const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+            for (let i = 0; i < 70; i++) {
+                ctx.fillStyle = `rgba(${40 + rnd() * 30},${48 + rnd() * 30},${52 + rnd() * 30},${0.05 + rnd() * 0.1})`;
+                ctx.fillRect(rnd() * W, rnd() * H, 4 + rnd() * 10, 40 + rnd() * 200);
+            }
+            // floor slab bands (y metres from ground)
+            [3.6, 7.2].forEach(ym => {
+                const y = H - ym * ppm;
+                ctx.fillStyle = '#7e868c';
+                ctx.fillRect(0, y - 9, W, 18);
+            });
+            const drawWindow = (xm, ym, wm, hm) => {
+                const x = xm * ppm, y = H - (ym + hm) * ppm, w = wm * ppm, h = hm * ppm;
+                ctx.fillStyle = '#dfe3e5';
+                ctx.fillRect(x - 5, y - 5, w + 10, h + 10);
+                const g = ctx.createLinearGradient(x, y, x + w, y + h);
+                g.addColorStop(0, '#5f6d78'); g.addColorStop(0.5, '#2f3a43'); g.addColorStop(1, '#4a5864');
+                ctx.fillStyle = g;
+                ctx.fillRect(x, y, w, h);
+                ctx.fillStyle = '#dfe3e5';
+                const panes = Math.max(2, Math.round(wm / 0.95));
+                for (let p = 1; p < panes; p++) ctx.fillRect(x + (w / panes) * p - 2, y, 4, h);
+                ctx.fillRect(x, y + h * 0.5 - 2, w, 4);
+                ctx.fillStyle = 'rgba(255,255,255,0.12)';
+                ctx.beginPath(); ctx.moveTo(x + w * 0.15, y); ctx.lineTo(x + w * 0.4, y); ctx.lineTo(x + w * 0.1, y + h); ctx.lineTo(x, y + h); ctx.fill();
+            };
+            for (let i = 0; i < 6; i++) {
+                const xm = 0.9 + i * 3.85;
+                drawWindow(xm, 8.1, 3.1, 1.9);
+                drawWindow(xm, 4.45, 3.1, 1.9);
+                if (i !== 1) drawWindow(xm, 0.75, 3.1, 1.9);
+            }
+            // ground-floor door / dark opening
+            ctx.fillStyle = '#1d242a';
+            ctx.fillRect(4.7 * ppm, H - 3.0 * ppm, 2.9 * ppm, 3.0 * ppm);
+            ctx.fillStyle = '#394650';
+            ctx.fillRect(4.9 * ppm, H - 2.8 * ppm, 2.5 * ppm, 2.8 * ppm);
+            const t = new THREE.CanvasTexture(c);
+            return t;
+        }
+
+        function createAluminiumPanelTexture() {
+            const c = document.createElement('canvas');
+            c.width = 512; c.height = 640;
+            const ctx = c.getContext('2d');
+            const cols = ['#8b9298', '#16191d', '#b4bac0', '#b4bac0', '#16191d', '#16191d', '#8b9298', '#16191d'];
+            cols.forEach((col, i) => { ctx.fillStyle = col; ctx.fillRect(i * 64, 0, 64, 640); });
+            for (let r = 0; r < 4; r++) {
+                for (let i = 0; i < 8; i++) {
+                    if ((i + r) % 3 === 0) {
+                        ctx.fillStyle = (i % 2) ? 'rgba(255,255,255,0.14)' : 'rgba(0,0,0,0.22)';
+                        ctx.fillRect(i * 64, r * 160, 64, 160);
+                    }
+                }
+            }
+            ctx.strokeStyle = '#07090b';
+            ctx.lineWidth = 2;
+            for (let y = 0; y <= 640; y += 105) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(512, y); ctx.stroke(); }
+            for (let x = 0; x <= 512; x += 64) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, 640); ctx.stroke(); }
+            // tall glass strip (as in the photo)
+            const gx = 4 * 64 + 14;
+            const g = ctx.createLinearGradient(gx, 0, gx + 36, 0);
+            g.addColorStop(0, '#2c4552'); g.addColorStop(0.5, '#6f98a8'); g.addColorStop(1, '#27404c');
+            ctx.fillStyle = g;
+            ctx.fillRect(gx, 30, 36, 560);
+            ctx.fillStyle = 'rgba(255,255,255,0.18)';
+            ctx.fillRect(gx + 5, 30, 6, 560);
+            return new THREE.CanvasTexture(c);
+        }
+
+        function cylBetween(a, b, r1, mat, r2 = null, seg = 8) {
+            const dir = new THREE.Vector3().subVectors(b, a);
+            const len = dir.length();
+            const m = new THREE.Mesh(new THREE.CylinderGeometry(r2 === null ? r1 : r2, r1, len, seg), mat);
+            m.position.copy(a).addScaledVector(dir, 0.5);
+            m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+            return m;
+        }
+
+        function getEastRoadY(z) {
+            return -Math.max(0, Math.min(1, (-64.0 - z) / 24.0)) * 3.0;
+        }
+
+        function buildEastDescent(group, M) {
+            const east = new THREE.Group();
+            const stoneTex = createRubbleStoneTexture();
+            const stoneMat = new THREE.MeshStandardMaterial({ map: stoneTex, roughness: 0.95 });
+            stoneTex.repeat.set(20.8, 2.64);
+            const plasterGrey = new THREE.MeshStandardMaterial({ map: M.concreteTex, color: 0xa7aeb5, roughness: 0.92 });
+            const plasterCream = new THREE.MeshStandardMaterial({ color: 0xc9ced2, roughness: 0.88 });
+            const steelMat = new THREE.MeshStandardMaterial({ color: 0xd8dde2, metalness: 0.85, roughness: 0.28 });
+            const tireMat = new THREE.MeshStandardMaterial({ color: 0x121316, roughness: 0.9 });
+            const glassDark = new THREE.MeshStandardMaterial({ color: 0x22303a, roughness: 0.2, metalness: 0.3 });
+            const darkChassis = new THREE.MeshStandardMaterial({ color: 0x25282d, roughness: 0.7, metalness: 0.3 });
+            const frondTex = createFrondTexture();
+
+            // ---------------- ROAD: asphalt slope with centre wear ----------------
+            const slopeRun = 24.0, slopeDrop = 3.0;
+            const slopeAngle = Math.atan2(slopeDrop, slopeRun);
+            const slopeHyp = Math.hypot(slopeRun, slopeDrop);
+            const roadMatDark = M.asphaltMat.clone();
+            roadMatDark.color.set(0x80848a);
+            M.roadMatDark = roadMatDark;
+            const roadDeck = new THREE.Mesh(new THREE.BoxGeometry(6.0, 0.24, slopeHyp), roadMatDark);
+            roadDeck.position.set(19.2, -1.62, -76.0);
+            roadDeck.rotation.x = -slopeAngle;
+            roadDeck.receiveShadow = true;
+            east.add(roadDeck);
+            // faint tyre-wear strips so the surface isn't uniform
+            const wearMat = new THREE.MeshBasicMaterial({ color: 0x20242a, transparent: true, opacity: 0.18 });
+            [18.3, 20.3].forEach(wx => {
+                const wear = new THREE.Mesh(new THREE.PlaneGeometry(0.6, slopeHyp - 1), wearMat);
+                wear.rotation.x = -Math.PI / 2 - slopeAngle;
+                wear.position.set(wx, -1.49, -76.0);
+                east.add(wear);
+            });
+
+            // ---------------- LEFT: rubble-stone retaining wall under the Head Office ----------------
+            const wallBody = new THREE.Mesh(new THREE.BoxGeometry(0.6, 3.4, 52.0), M.darkConcreteMat);
+            wallBody.position.set(16.0, -1.65, -90.0);
+            east.add(wallBody);
+            const stoneFace = new THREE.Mesh(new THREE.PlaneGeometry(52.0, 3.3), stoneMat);
+            stoneFace.rotation.y = Math.PI / 2;
+            stoneFace.position.set(16.31, -1.65, -90.0);
+            stoneFace.receiveShadow = true;
+            east.add(stoneFace);
+
+            // Painted stepped parapet with planters on top of the wall (plateau side)
+            const gateZ1 = -78.9, gateZ2 = -77.0;
+            for (let z = -64.8; z > -88.4; z -= 2.2) {
+                const zc = z - 1.1;
+                if (zc < gateZ2 + 1.0 && zc > gateZ1 - 1.0) continue;
+                const idx = Math.round((-64.8 - z) / 2.2);
+                const h = idx % 2 === 0 ? 0.62 : 0.86;
+                const seg = new THREE.Mesh(new THREE.BoxGeometry(0.34, h, 2.2), plasterGrey);
+                seg.position.set(15.92, h / 2, zc);
+                seg.castShadow = true;
+                east.add(seg);
+                const cap = new THREE.Mesh(new THREE.BoxGeometry(0.48, 0.08, 2.24), plasterCream);
+                cap.position.set(15.92, h + 0.04, zc);
+                east.add(cap);
+            }
+            const makeAreca = (x, z, sc) => {
+                const g = new THREE.Group();
+                for (let s = 0; s < 3; s++) {
+                    const a = s * 2.1 + 0.4;
+                    const p = makePalm({ height: (1.5 + s * 0.35) * sc, lean: 0.25, fronds: 9, scale: 0.34 * sc, tint: 0xd7e56a, trunkColor: 0x8c9a4a, thick: 0.045, seed: s + 1 });
+                    p.position.set(Math.cos(a) * 0.22, 0, Math.sin(a) * 0.22);
+                    g.add(p);
+                }
+                g.position.set(x, 0.4, z);
+                return g;
+            };
+            const planterMat = new THREE.MeshStandardMaterial({ color: 0x8e969d, roughness: 0.9 });
+            const bougMat = new THREE.MeshStandardMaterial({ color: 0x2f6b30, roughness: 0.9 });
+            const bougFlowerMat = new THREE.MeshStandardMaterial({ color: 0xd9348c, roughness: 0.7 });
+            const bougFlowerMat2 = new THREE.MeshStandardMaterial({ color: 0xf08ab8, roughness: 0.7 });
+            [-66.0, -70.4, -74.2, -81.8, -85.6].forEach((pz, i) => {
+                const pot = new THREE.Mesh(new THREE.BoxGeometry(0.7, 0.4, 1.6), planterMat);
+                pot.position.set(15.35, 0.2, pz);
+                pot.castShadow = true;
+                east.add(pot);
+                if (i % 2 === 0) east.add(makeAreca(15.35, pz, 1.1));
+                else {
+                    for (let b = 0; b < 3; b++) {
+                        const blob = new THREE.Mesh(new THREE.IcosahedronGeometry(0.42 + b * 0.05, 1), bougMat);
+                        blob.position.set(15.45 + (b % 2) * 0.15, 0.72 + b * 0.1, pz - 0.5 + b * 0.5);
+                        blob.scale.y = 0.8;
+                        east.add(blob);
+                    }
+                    for (let f = 0; f < 10; f++) {
+                        const fl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.1, 0), f % 2 ? bougFlowerMat : bougFlowerMat2);
+                        fl.position.set(15.3 + (f % 3) * 0.28, 0.65 + (f % 4) * 0.14, pz - 0.65 + f * 0.14);
+                        east.add(fl);
+                    }
+                }
+            });
+            // trailing bougainvillea over the parapet face
+            for (let z = -65.5; z > -88; z -= 2.6) {
+                if (z < gateZ2 + 0.6 && z > gateZ1 - 0.6) continue;
+                const v = new THREE.Mesh(new THREE.IcosahedronGeometry(0.34, 1), bougMat);
+                v.position.set(16.15, 0.55, z);
+                v.scale.set(0.8, 0.7, 1.3);
+                east.add(v);
+                const fl = new THREE.Mesh(new THREE.IcosahedronGeometry(0.11, 0), bougFlowerMat);
+                fl.position.set(16.3, 0.62, z + 0.15);
+                east.add(fl);
+            }
+            // White saloon parked on the Head Office forecourt behind the parapet
+            const parkedCar = new THREE.Group();
+            const carMat = new THREE.MeshStandardMaterial({ color: 0xf1f3f4, roughness: 0.25, metalness: 0.4 });
+            const carBody = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.7, 4.4), carMat);
+            carBody.position.y = 0.62; carBody.castShadow = true;
+            parkedCar.add(carBody);
+            const carCabin = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.55, 2.2), carMat);
+            carCabin.position.set(0, 1.2, -0.2);
+            parkedCar.add(carCabin);
+            const carGlass = new THREE.Mesh(new THREE.BoxGeometry(1.58, 0.4, 2.0), glassDark);
+            carGlass.position.set(0, 1.22, -0.2);
+            parkedCar.add(carGlass);
+            [[-0.85, 1.3], [0.85, 1.3], [-0.85, -1.4], [0.85, -1.4]].forEach(([wx, wz]) => {
+                const w = new THREE.Mesh(new THREE.CylinderGeometry(0.33, 0.33, 0.24, 14), tireMat);
+                w.rotation.z = Math.PI / 2; w.position.set(wx, 0.33, wz);
+                parkedCar.add(w);
+            });
+            parkedCar.position.set(12.4, 0, -66.8);
+            east.add(parkedCar);
+
+            // Head Office tower side facing the road: aluminium-composite panels + glass strip
+            const towerPanels = new THREE.Mesh(
+                new THREE.PlaneGeometry(8.6, 11.0),
+                new THREE.MeshStandardMaterial({ map: createAluminiumPanelTexture(), roughness: 0.4, metalness: 0.3 })
+            );
+            towerPanels.rotation.y = Math.PI / 2;
+            towerPanels.position.set(15.24, 5.5, -81.4);
+            east.add(towerPanels);
+
+            // ---------------- STAIRS beside the wall (steel handrail) ----------------
+            const stairRise = 0.3, stairTread = 0.9, stairX1 = 16.3, stairX2 = 17.9;
+            const stairMat = new THREE.MeshStandardMaterial({ map: M.concreteTex, color: 0xb9c0c6, roughness: 0.9 });
+            for (let i = 1; i <= 10; i++) {
+                const top = -3 + stairRise * i;
+                const zc = -88 + stairTread * (i - 1) + stairTread / 2;
+                const h = top + 3.1;
+                const step = new THREE.Mesh(new THREE.BoxGeometry(stairX2 - stairX1, h, stairTread), stairMat);
+                step.position.set((stairX1 + stairX2) / 2, -3.1 + h / 2, zc);
+                step.castShadow = true; step.receiveShadow = true;
+                east.add(step);
+            }
+            const podium = new THREE.Mesh(new THREE.BoxGeometry(stairX2 - stairX1, 3.1, 1.3), stairMat);
+            podium.position.set((stairX1 + stairX2) / 2, -1.55, -77.45);
+            east.add(podium);
+            // handrail on the road side + dark door-side kerb
+            const railTopA = new THREE.Vector3(stairX2 - 0.05, -3 + stairRise + 0.95, -88 + 0.1);
+            const railTopB = new THREE.Vector3(stairX2 - 0.05, 0.95, -78.1);
+            east.add(cylBetween(railTopA, railTopB, 0.025, steelMat));
+            east.add(cylBetween(railTopA.clone().setY(railTopA.y - 0.42), railTopB.clone().setY(0.53), 0.02, steelMat));
+            for (let i = 1; i <= 10; i += 1) {
+                const top = -3 + stairRise * i;
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 0.95, 6), steelMat);
+                post.position.set(stairX2 - 0.05, top + 0.475, -88 + stairTread * (i - 1) + stairTread / 2);
+                east.add(post);
+            }
+            const podRail = cylBetween(new THREE.Vector3(stairX2 - 0.05, 0.95, -78.1), new THREE.Vector3(stairX2 - 0.05, 0.95, -76.8), 0.025, steelMat);
+            east.add(podRail);
+
+            // Person walking down the steps with a blue backpack
+            const person = new THREE.Group();
+            const skin = new THREE.MeshStandardMaterial({ color: 0x6b4a36, roughness: 0.8 });
+            const legs = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.86, 0.16), new THREE.MeshStandardMaterial({ color: 0x1b1c20 }));
+            legs.position.y = 0.43;
+            const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.6, 0.24), new THREE.MeshStandardMaterial({ color: 0x3d4148 }));
+            torso.position.y = 1.16;
+            const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 10, 8), skin);
+            head.position.y = 1.6;
+            const pack = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.42, 0.15), new THREE.MeshStandardMaterial({ color: 0x1d6fe0 }));
+            pack.position.set(0, 1.2, 0.19);
+            person.add(legs, torso, head, pack);
+            person.position.set(17.0, -3 + stairRise * 6, -88 + stairTread * 5.5);
+            person.rotation.y = 0;
+            east.add(person);
+
+            // ---------------- RIGHT: tall grey curved concrete wall ----------------
+            const curveX = (z) => 22.5 + 2.5 * Math.pow((-64.3 - z) / 24.1, 2);
+            const wallPts = [];
+            for (let z = -64.3; z >= -88.6; z -= 1.2) wallPts.push([curveX(z), -z]);
+            const shape = new THREE.Shape();
+            wallPts.forEach(([sx, sy], i) => (i === 0 ? shape.moveTo(sx, sy) : shape.lineTo(sx, sy)));
+            for (let i = wallPts.length - 1; i >= 0; i--) shape.lineTo(wallPts[i][0] + 0.7, wallPts[i][1]);
+            shape.closePath();
+            const tallGeo = new THREE.ExtrudeGeometry(shape, { depth: 5.9, bevelEnabled: false });
+            tallGeo.rotateX(-Math.PI / 2);
+            const wallTexLocal = M.concreteTex.clone();
+            wallTexLocal.wrapS = wallTexLocal.wrapT = THREE.RepeatWrapping;
+            wallTexLocal.repeat.set(0.22, 0.22);
+            wallTexLocal.needsUpdate = true;
+            const tallWall = new THREE.Mesh(tallGeo, new THREE.MeshStandardMaterial({ map: wallTexLocal, color: 0x9aa2aa, roughness: 0.95 }));
+            tallWall.position.y = -3.3;
+            tallWall.castShadow = true; tallWall.receiveShadow = true;
+            east.add(tallWall);
+            const crossWall = new THREE.Mesh(new THREE.BoxGeometry(28.0, 5.9, 0.7), new THREE.MeshStandardMaterial({ map: wallTexLocal, color: 0x9aa2aa, roughness: 0.95 }));
+            crossWall.position.set(38.7, -0.35, -88.9);
+            crossWall.castShadow = true;
+            east.add(crossWall);
+            // dark damp stains at the base of the grey wall
+            const stainMat = new THREE.MeshBasicMaterial({ color: 0x1f2a22, transparent: true, opacity: 0.22 });
+            const stain = new THREE.Mesh(new THREE.PlaneGeometry(10, 0.7), stainMat);
+            stain.rotation.y = -Math.PI / 2;
+            stain.position.set(22.46, -1.0, -70);
+            east.add(stain);
+
+            // Plateau behind the grey wall, lower factory yard, boundary walls and landscape
+            const grassLocal = M.grassMat;
+            const plane = (w, d, x, y, z, mat) => {
+                const m = new THREE.Mesh(new THREE.PlaneGeometry(w, d), mat);
+                m.rotation.x = -Math.PI / 2; m.position.set(x, y, z); m.receiveShadow = true;
+                east.add(m); return m;
+            };
+            // Road-level floor filling the gap between the straight road and the curving grey wall
+            const wedgeShape = new THREE.Shape();
+            wedgeShape.moveTo(22.0, 64.0);
+            for (let z = -64.3; z >= -88.6; z -= 1.2) wedgeShape.lineTo(curveX(z), -z);
+            wedgeShape.lineTo(curveX(-88.6), 88.6);
+            wedgeShape.lineTo(22.0, 88.6);
+            wedgeShape.closePath();
+            const wedgeGeo = new THREE.ShapeGeometry(wedgeShape);
+            wedgeGeo.rotateX(-Math.PI / 2);
+            const wp = wedgeGeo.attributes.position;
+            for (let i = 0; i < wp.count; i++) wp.setY(i, getEastRoadY(wp.getZ(i)) + 0.01);
+            wedgeGeo.computeVertexNormals();
+            const wedgeMesh = new THREE.Mesh(wedgeGeo, new THREE.MeshStandardMaterial({ map: M.asphaltMat.map, color: 0x80848a, roughness: 0.92, side: THREE.DoubleSide }));
+            wedgeMesh.receiveShadow = true;
+            east.add(wedgeMesh);
+            const plateauShape = new THREE.Shape();
+            plateauShape.moveTo(curveX(-64.3) + 0.7, 64.3);
+            for (let z = -65.5; z >= -88.6; z -= 1.2) plateauShape.lineTo(curveX(z) + 0.7, -z);
+            plateauShape.lineTo(curveX(-88.6) + 0.7, 88.6);
+            plateauShape.lineTo(150, 88.6);
+            plateauShape.lineTo(150, 64.3);
+            plateauShape.closePath();
+            const plateauMesh = new THREE.Mesh(new THREE.ShapeGeometry(plateauShape), new THREE.MeshStandardMaterial({ color: 0x5f8c3c, roughness: 0.95, side: THREE.FrontSide }));
+            plateauMesh.rotation.x = -Math.PI / 2;
+            plateauMesh.receiveShadow = true;
+            east.add(plateauMesh);
+            plane(90, 27.4, 105, 0.0, -102.3, grassLocal);
+            plane(202, 40, 49, 0.0, -136, grassLocal);
+            plane(44, 29.4, 38, -3.0, -101.3, roadMatDark);
+            const apron = plane(23, 5.2, 33.5, -2.97, -90.8, M.concreteMat);
+            const yardEast = new THREE.Mesh(new THREE.BoxGeometry(0.6, 3.6, 27.4), M.darkConcreteMat);
+            yardEast.position.set(60.3, -1.2, -102.3); east.add(yardEast);
+            const yardSouth = new THREE.Mesh(new THREE.BoxGeometry(44.6, 3.6, 0.6), M.darkConcreteMat);
+            yardSouth.position.set(38, -1.2, -116.0); east.add(yardSouth);
+            const hillMat = new THREE.MeshStandardMaterial({ color: 0x3f6d34, roughness: 1 });
+            [[40, -170, 70, 26], [-70, -160, 60, 22], [130, -140, 55, 20], [10, -190, 55, 30]].forEach(([hx, hz, r, hy]) => {
+                const hill = new THREE.Mesh(new THREE.SphereGeometry(r, 20, 12), hillMat);
+                hill.scale.y = hy / r; hill.position.set(hx, -2, hz);
+                east.add(hill);
+            });
+
+            // ---------------- 3-STOREY GREY FACTORY with pitched green-grey roof ----------------
+            const fac = new THREE.Group();
+            fac.position.set(33, -3, -99.25);
+            const bodyMat = new THREE.MeshStandardMaterial({ map: M.concreteTex, color: 0xa4abb1, roughness: 0.9 });
+            const facBody = new THREE.Mesh(new THREE.BoxGeometry(24, 10.8, 12), bodyMat);
+            facBody.position.y = 5.4; facBody.castShadow = true; facBody.receiveShadow = true;
+            fac.add(facBody);
+            const facade = new THREE.Mesh(new THREE.PlaneGeometry(24, 10.8), new THREE.MeshStandardMaterial({ map: createGreyFactoryFacadeTexture(), roughness: 0.8 }));
+            facade.position.set(0, 5.4, 6.02);
+            fac.add(facade);
+            const roofTex = createCorrugatedSheetTexture('#7d8c82', 0.4);
+            roofTex.repeat.set(30, 1);
+            const roofMatG = new THREE.MeshStandardMaterial({ map: roofTex, roughness: 0.6, metalness: 0.3 });
+            [1, -1].forEach(s => {
+                const panel = new THREE.Mesh(new THREE.BoxGeometry(25.6, 0.16, 7.55), roofMatG);
+                panel.position.set(0, 11.9, s * 3.6);
+                panel.rotation.x = s * 0.296;
+                panel.castShadow = true;
+                fac.add(panel);
+            });
+            const gableShape = new THREE.Shape();
+            gableShape.moveTo(-6.0, 0); gableShape.lineTo(6.0, 0); gableShape.lineTo(0, 2.2); gableShape.closePath();
+            [-12.02, 12.02].forEach(gx => {
+                const gable = new THREE.Mesh(new THREE.ShapeGeometry(gableShape), new THREE.MeshStandardMaterial({ color: 0x9aa2a8, side: THREE.DoubleSide }));
+                gable.rotation.y = Math.PI / 2; gable.position.set(gx, 10.8, 0);
+                fac.add(gable);
+            });
+            // 2nd-floor balcony with railing and balusters
+            const balcSlab = new THREE.Mesh(new THREE.BoxGeometry(24.4, 0.22, 1.5), plasterGrey);
+            balcSlab.position.set(0, 3.7, 6.75); fac.add(balcSlab);
+            const balcRail = new THREE.Mesh(new THREE.BoxGeometry(24.4, 0.06, 0.06), steelMat);
+            balcRail.position.set(0, 4.8, 7.45); fac.add(balcRail);
+            const balcMid = new THREE.Mesh(new THREE.BoxGeometry(24.4, 0.04, 0.04), steelMat);
+            balcMid.position.set(0, 4.25, 7.45); fac.add(balcMid);
+            for (let bx = -12.0; bx <= 12.01; bx += 0.8) {
+                const bal = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.05, 0.04), steelMat);
+                bal.position.set(bx, 4.27, 7.45); fac.add(bal);
+            }
+            [2, 3].forEach((k, i) => {
+                const ac = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.5, 0.4), M.whiteWallMat);
+                ac.position.set(-7.5 + i * 11, 8.9, 6.2); fac.add(ac);
+            });
+            east.add(fac);
+
+            // ---------------- LOADING SHEDS ----------------
+            // Rusty lean-to roof on steel posts
+            const rustTex = createCorrugatedSheetTexture('#7c6a5e', 1.6);
+            rustTex.repeat.set(10, 1);
+            const rustMat = new THREE.MeshStandardMaterial({ map: rustTex, roughness: 0.7, metalness: 0.35 });
+            const leanRoof = new THREE.Mesh(new THREE.BoxGeometry(10.6, 0.1, 4.1), rustMat);
+            leanRoof.position.set(28.5, 0.85, -91.3);
+            leanRoof.rotation.x = 0.26;
+            leanRoof.castShadow = true;
+            east.add(leanRoof);
+            [24.5, 28.5, 32.5].forEach(px => {
+                const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.3, 8), M.poleMat);
+                post.position.set(px, -1.35, -89.4); east.add(post);
+            });
+            // Barrel-vaulted corrugated shed
+            const barrelTex = createCorrugatedSheetTexture('#9aa5a0', 0.5);
+            barrelTex.repeat.set(14, 1);
+            const barrelGeo = new THREE.CylinderGeometry(3.7, 3.7, 4.4, 28, 1, true, -Math.PI / 2, Math.PI);
+            const barrel = new THREE.Mesh(barrelGeo, new THREE.MeshStandardMaterial({ map: barrelTex, roughness: 0.5, metalness: 0.5, side: THREE.DoubleSide }));
+            barrel.rotation.x = -Math.PI / 2;
+            barrel.scale.set(1, 1, 0.55);
+            barrel.position.set(37.1, 0.2, -91.05);
+            barrel.castShadow = true;
+            east.add(barrel);
+            [33.4, 40.8].forEach(px => {
+                [-89.0, -93.0].forEach(pz => {
+                    const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.07, 3.2, 8), M.poleMat);
+                    post.position.set(px, -1.4, pz); east.add(post);
+                });
+            });
+            for (let rb = 0; rb < 4; rb++) {
+                const rib = new THREE.Mesh(new THREE.TorusGeometry(3.7, 0.04, 6, 24, Math.PI), M.poleMat);
+                rib.scale.set(1, 0.55, 1);
+                rib.position.set(37.1, 0.2, -89.1 - rb * 1.3);
+                east.add(rib);
+            }
+
+            // ---------------- VEHICLES ----------------
+            const makeWheel = (x, z, r = 0.45) => {
+                const w = new THREE.Mesh(new THREE.CylinderGeometry(r, r, 0.3, 14), tireMat);
+                w.rotation.z = Math.PI / 2; w.position.set(x, r, z); return w;
+            };
+            const makeCab = (g, zc, color) => {
+                const cabMat = new THREE.MeshStandardMaterial({ color, roughness: 0.55, metalness: 0.25 });
+                const cab = new THREE.Mesh(new THREE.BoxGeometry(2.1, 1.5, 1.5), cabMat);
+                cab.position.set(0, 1.9, zc); cab.castShadow = true; g.add(cab);
+                const ws = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.65, 0.05), glassDark);
+                ws.position.set(0, 2.15, zc + 0.76); g.add(ws);
+            };
+            const makeFlatbed = (x, z, rotY, cabColor, bedLen = 4.0) => {
+                const g = new THREE.Group();
+                const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.25, bedLen + 1.6), darkChassis);
+                chassis.position.set(0, 0.85, -0.2); g.add(chassis);
+                const deck = new THREE.Mesh(new THREE.BoxGeometry(2.3, 0.12, bedLen), new THREE.MeshStandardMaterial({ color: 0xaeb5ba, roughness: 0.6, metalness: 0.3 }));
+                deck.position.set(0, 1.04, -0.9); g.add(deck);
+                [-1.12, 1.12].forEach(sx => {
+                    const top = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.05, bedLen), steelMat);
+                    top.position.set(sx, 1.95, -0.9); g.add(top);
+                    for (let pz = 0; pz <= bedLen; pz += bedLen / 4) {
+                        const p = new THREE.Mesh(new THREE.BoxGeometry(0.05, 0.9, 0.05), steelMat);
+                        p.position.set(sx, 1.5, -0.9 - bedLen / 2 + pz); g.add(p);
+                    }
+                });
+                makeCab(g, 1.9, cabColor);
+                g.add(makeWheel(-1.0, 1.9), makeWheel(1.0, 1.9), makeWheel(-1.0, -1.5), makeWheel(1.0, -1.5));
+                g.position.set(x, -3, z); g.rotation.y = rotY;
+                return g;
+            };
+            const makeBoxLorry = (x, z, rotY) => {
+                const g = new THREE.Group();
+                const chassis = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.25, 5.2), darkChassis);
+                chassis.position.set(0, 0.85, -0.2); g.add(chassis);
+                const lower = new THREE.Mesh(new THREE.BoxGeometry(2.25, 1.1, 3.7), new THREE.MeshStandardMaterial({ color: 0xdfe1e2, roughness: 0.7 }));
+                lower.position.set(0, 1.55, -1.0); lower.castShadow = true; g.add(lower);
+                const upper = new THREE.Mesh(new THREE.BoxGeometry(2.25, 1.0, 3.7), new THREE.MeshStandardMaterial({ color: 0x3a3d41, roughness: 0.75 }));
+                upper.position.set(0, 2.6, -1.0); g.add(upper);
+                for (let v = 0; v < 4; v++) {
+                    const vent = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.5, 0.3), new THREE.MeshStandardMaterial({ color: 0xc9ced1 }));
+                    vent.position.set(1.14, 2.65, -2.2 + v * 0.8); g.add(vent);
+                    const vent2 = vent.clone(); vent2.position.x = -1.14; g.add(vent2);
+                }
+                makeCab(g, 1.7, 0xe7e9ea);
+                g.add(makeWheel(-1.0, 1.7), makeWheel(1.0, 1.7), makeWheel(-1.0, -1.8), makeWheel(1.0, -1.8));
+                g.position.set(x, -3, z); g.rotation.y = rotY;
+                return g;
+            };
+            east.add(makeBoxLorry(27.4, -91.3, 0.1));
+            east.add(makeFlatbed(21.8, -92.0, -0.08, 0xcfd5d8));
+            east.add(makeFlatbed(24.1, -91.2, 0.14, 0xb9c0c4));
+            east.add(makeFlatbed(36.0, -91.4, -0.2, 0xf1f2f3, 2.2));
+
+            // Trailer loaded with white sacks, parked on the left of the yard (as in the photo)
+            const trailer = new THREE.Group();
+            const trChassis = new THREE.Mesh(new THREE.BoxGeometry(2.5, 0.25, 8.6), darkChassis);
+            trChassis.position.y = 1.0; trailer.add(trChassis);
+            const trDeck = new THREE.Mesh(new THREE.BoxGeometry(2.6, 0.1, 8.4), new THREE.MeshStandardMaterial({ color: 0x7b8087, roughness: 0.7 }));
+            trDeck.position.y = 1.16; trailer.add(trDeck);
+            [-2.3, -1.4, 2.6].forEach(wz => {
+                trailer.add(makeWheel(-1.15, wz), makeWheel(1.15, wz));
+            });
+            const sackGeo = new THREE.BoxGeometry(1.15, 0.3, 0.58);
+            const sackMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.95 });
+            const layers = 5, perRow = 2, rows = 12;
+            const sacks = new THREE.InstancedMesh(sackGeo, sackMat, layers * perRow * rows);
+            let si = 0; const dummy = new THREE.Object3D(); const col = new THREE.Color();
+            for (let l = 0; l < layers; l++) {
+                for (let r = 0; r < rows; r++) {
+                    for (let p = 0; p < perRow; p++) {
+                        dummy.position.set(-0.6 + p * 1.2 + ((l % 2) ? 0.04 : -0.04), 1.37 + l * 0.3, -3.6 + r * 0.6 + ((si * 7) % 5) * 0.01);
+                        dummy.rotation.set(0, ((si * 13) % 7 - 3) * 0.012, 0);
+                        dummy.updateMatrix();
+                        sacks.setMatrixAt(si, dummy.matrix);
+                        const shade = 0.82 + ((si * 17) % 10) * 0.018;
+                        col.setRGB(0.93 * shade, 0.9 * shade, 0.82 * shade);
+                        sacks.setColorAt(si, col);
+                        si++;
+                    }
+                }
+            }
+            sacks.castShadow = true;
+            trailer.add(sacks);
+            // stainless side frame
+            [-1.28, 1.28].forEach(sx => {
+                for (let pz = -4; pz <= 4.01; pz += 1.6) {
+                    const p = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.025, 1.9, 6), steelMat);
+                    p.position.set(sx, 2.1, pz); trailer.add(p);
+                }
+                const rail = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.04, 8.2), steelMat);
+                rail.position.set(sx, 3.0, 0); trailer.add(rail);
+            });
+            trailer.position.set(18.9, -3, -96.0);
+            trailer.rotation.y = -0.05;
+            east.add(trailer);
+
+            // ---------------- PALMS ----------------
+            const palmDefs = [
+                [22.6, -3, -94.2, 15.5, 0.9, 1.5],   // tall coconut in front of the factory
+                [46.8, -3, -95.5, 12.5, -0.8, 1.2],
+                [52.0, -3, -108.0, 11.0, 0.6, 1.1],
+                [10.0, 0, -98.0, 12.0, 0.7, 1.15],   // behind the Head Office (left of view)
+                [6.0, 0, -101.0, 14.0, -0.6, 1.25],
+                [35.0, 0, -76.0, 14.0, 0.5, 1.25],   // beyond the grey wall (skyline)
+                [46.0, 0, -82.0, 12.0, -0.6, 1.1]
+            ];
+            palmDefs.forEach(([px, py, pz, ph, lean, sc], i) => {
+                const palm = makePalm({ height: ph, lean, fronds: 15, scale: sc, tint: 0xffffff, trunkColor: 0x6d6050, thick: 0.3, seed: i + 3 });
+                palm.position.set(px, py, pz);
+                palm.rotation.y = i * 1.3;
+                east.add(palm);
+            });
+
+            // Junction sign at the top of the road
+            const junctionSignPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.5, 8), M.poleMat);
+            junctionSignPost.position.set(15.6, 1.25, -62.6);
+            east.add(junctionSignPost);
+            const junctionSign = new THREE.Mesh(
+                new THREE.PlaneGeometry(2.2, 0.65),
+                new THREE.MeshBasicMaterial({ map: createSignTexture('DOWNHILL ROAD\nTO FACTORY YARD  ⬇', '#1e3a8a', '#facc15', 384, 112, 24), side: THREE.DoubleSide })
+            );
+            junctionSign.position.set(15.6, 2.25, -62.6);
+            east.add(junctionSign);
+
+            group.add(east);
+
+            function makePalm(o) {
+                const g = new THREE.Group();
+                const trunkMat = new THREE.MeshStandardMaterial({ color: o.trunkColor, roughness: 0.95 });
+                const N = 9;
+                const pts = [];
+                for (let k = 0; k <= N; k++) {
+                    const t = k / N;
+                    pts.push(new THREE.Vector3(o.lean * t * t * 1.4, o.height * t, Math.sin(t * 2.2 + o.seed) * 0.25 * o.height * 0.05));
+                }
+                for (let k = 0; k < N; k++) {
+                    const r1 = o.thick * (1 - 0.4 * (k / N));
+                    const r2 = o.thick * (1 - 0.4 * ((k + 1) / N));
+                    g.add(cylBetween(pts[k], pts[k + 1], r1, trunkMat, r2, 8));
+                }
+                const top = pts[N];
+                const frondGeo = new THREE.PlaneGeometry(1.5, 4.6, 1, 10);
+                frondGeo.translate(0, 2.3, 0);
+                const pos = frondGeo.attributes.position;
+                for (let v = 0; v < pos.count; v++) {
+                    const y = pos.getY(v);
+                    pos.setZ(v, 0.09 * y * y);
+                }
+                frondGeo.computeVertexNormals();
+                const fm = new THREE.MeshStandardMaterial({ map: frondTex, color: o.tint, transparent: true, alphaTest: 0.35, side: THREE.DoubleSide, roughness: 0.8 });
+                for (let f = 0; f < o.fronds; f++) {
+                    const pivot = new THREE.Object3D();
+                    pivot.position.copy(top);
+                    pivot.rotation.y = (f / o.fronds) * Math.PI * 2 + (o.seed * 0.7);
+                    const elev = 0.95 - (f % 3) * 0.55 + ((f * 37) % 10) * 0.012;
+                    const mesh = new THREE.Mesh(frondGeo, fm);
+                    mesh.rotation.x = Math.PI / 2 - elev;
+                    mesh.scale.setScalar(o.scale);
+                    mesh.castShadow = true;
+                    pivot.add(mesh);
+                    g.add(pivot);
+                }
+                if (o.thick > 0.2) {
+                    for (let n = 0; n < 5; n++) {
+                        const nut = new THREE.Mesh(new THREE.SphereGeometry(0.17 * o.scale, 8, 6), new THREE.MeshStandardMaterial({ color: 0x78a23a }));
+                        nut.position.set(top.x + Math.cos(n * 1.3) * 0.3, top.y - 0.25, top.z + Math.sin(n * 1.3) * 0.3);
+                        g.add(nut);
+                    }
+                }
+                return g;
+            }
         }
 
         // --- BUILD PHOTO-ACCURATE 3D OFFICE & FACTORY SIMULATION ---
@@ -4462,118 +5169,8 @@
                 group.add(boTree);
             }
 
-            // =========================================================================
-            // EAST DOWNHILL SLOPING ROAD BESIDE MAIN HEAD OFFICE -> 3-FLOOR FACTORY
-            // =========================================================================
-            const slopeRun = 24.0;
-            const slopeDrop = 3.0;
-            const slopeAngle = Math.atan2(slopeDrop, slopeRun);
-            const slopeHyp = Math.hypot(slopeRun, slopeDrop);
-
-            const downhillGroup = new THREE.Group();
-
-            const roadDeck = new THREE.Mesh(
-                new THREE.BoxGeometry(6.0, 0.24, slopeHyp),
-                asphaltMat
-            );
-            roadDeck.position.set(19.2, -1.62, -76.0);
-            roadDeck.rotation.x = -slopeAngle;
-            roadDeck.receiveShadow = true;
-            downhillGroup.add(roadDeck);
-
-            [16.3, 22.1].forEach(cx => {
-                const curbBeam = new THREE.Mesh(
-                    new THREE.BoxGeometry(0.28, 0.36, slopeHyp),
-                    whiteWallMat
-                );
-                curbBeam.position.set(cx, -1.38, -76.0);
-                curbBeam.rotation.x = -slopeAngle;
-                downhillGroup.add(curbBeam);
-            });
-
-            const yellowLineMat = new THREE.MeshBasicMaterial({ color: 0xfacc15 });
-            for (let sz = -65.5; sz >= -86.5; sz -= 2.6) {
-                const t = (-64.0 - sz) / slopeRun;
-                const dash = new THREE.Mesh(new THREE.BoxGeometry(0.16, 0.04, 1.2), yellowLineMat);
-                dash.position.set(19.2, -t * slopeDrop + 0.02, sz);
-                dash.rotation.x = -slopeAngle;
-                downhillGroup.add(dash);
-            }
-
-            const leftRetainingWall = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.4, 52.0), darkConcreteMat);
-            leftRetainingWall.position.set(16.0, -1.55, -90.0);
-            downhillGroup.add(leftRetainingWall);
-
-            const rightRampWall = new THREE.Mesh(new THREE.BoxGeometry(0.45, 3.4, 24.2), darkConcreteMat);
-            rightRampWall.position.set(22.4, -1.55, -76.0);
-            downhillGroup.add(rightRampWall);
-
-            const crossRetainingWall = new THREE.Mesh(new THREE.BoxGeometry(28.0, 3.4, 0.45), darkConcreteMat);
-            crossRetainingWall.position.set(36.2, -1.55, -64.0);
-            downhillGroup.add(crossRetainingWall);
-
-            const junctionSignPost = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 2.5, 8), poleMat);
-            junctionSignPost.position.set(15.6, 1.25, -63.5);
-            downhillGroup.add(junctionSignPost);
-
-            const junctionSignTex = createSignTexture('DOWNHILL ROAD\nTO 3-FLOOR FACTORY  ⬇', '#1e3a8a', '#facc15', 384, 112, 24);
-            const junctionSign = new THREE.Mesh(
-                new THREE.PlaneGeometry(2.2, 0.65),
-                new THREE.MeshBasicMaterial({ map: junctionSignTex, side: THREE.DoubleSide })
-            );
-            junctionSign.position.set(15.6, 2.25, -63.5);
-            downhillGroup.add(junctionSign);
-
-            const lowerYardFloor = new THREE.Mesh(new THREE.PlaneGeometry(34.0, 30.0), asphaltMat);
-            lowerYardFloor.rotation.x = -Math.PI / 2;
-            lowerYardFloor.position.set(33.0, -3.0, -101.0);
-            lowerYardFloor.receiveShadow = true;
-            downhillGroup.add(lowerYardFloor);
-
-            // 3-FLOOR FACTORY BUILDING AT BOTTOM OF EAST DOWNHILL ROAD
-            const threeFloorFactory = new THREE.Group();
-            threeFloorFactory.position.set(27.5, -3.0, -96.5);
-
-            const factory3FloorTex = createBlueCorrugatedWallTexture(true, 3);
-            const factory3FloorMat = new THREE.MeshStandardMaterial({ map: factory3FloorTex, roughness: 0.52 });
-
-            const f3Body = new THREE.Mesh(new THREE.BoxGeometry(20.0, 11.4, 12.5), factory3FloorMat);
-            f3Body.position.y = 5.7;
-            f3Body.castShadow = true;
-            threeFloorFactory.add(f3Body);
-
-            [3.8, 7.6].forEach(fy => {
-                const floorBand = new THREE.Mesh(new THREE.BoxGeometry(20.3, 0.24, 12.8), blueRoofMat);
-                floorBand.position.y = fy;
-                threeFloorFactory.add(floorBand);
-            });
-
-            const f3Roof = new THREE.Mesh(new THREE.BoxGeometry(20.8, 0.55, 13.3), blueRoofMat);
-            f3Roof.position.y = 11.65;
-            threeFloorFactory.add(f3Roof);
-
-            const f3Shutter = new THREE.Mesh(
-                new THREE.BoxGeometry(4.6, 3.2, 0.25),
-                new THREE.MeshStandardMaterial({ color: 0x334155, metalness: 0.6, roughness: 0.35 })
-            );
-            f3Shutter.position.set(-4.2, 1.6, 6.28);
-            threeFloorFactory.add(f3Shutter);
-
-            const f3Canopy = new THREE.Mesh(new THREE.BoxGeometry(7.2, 0.24, 2.6), blueRoofMat);
-            f3Canopy.position.set(-4.2, 3.45, 7.4);
-            f3Canopy.rotation.x = 0.14;
-            threeFloorFactory.add(f3Canopy);
-
-            const f3SignTex = createSignTexture('PRODUCTION FACTORY - BLOCK B (3 FLOORS)', '#0f172a', '#f8fafc', 640, 80, 26);
-            const f3Sign = new THREE.Mesh(
-                new THREE.PlaneGeometry(8.2, 0.95),
-                new THREE.MeshBasicMaterial({ map: f3SignTex })
-            );
-            f3Sign.position.set(-1.5, 7.9, 6.32);
-            threeFloorFactory.add(f3Sign);
-
-            downhillGroup.add(threeFloorFactory);
-            group.add(downhillGroup);
+            // East descent rebuilt from field photos (see buildEastDescent)
+            buildEastDescent(group, { asphaltMat, concreteMat, concreteTex: weatheredConcreteTex, darkConcreteMat, poleMat, whiteWallMat, grassMat });
 
             // =========================================================================
             // PHOTO 5: LARGE 3-FLOOR MAIN HEAD OFFICE TOUCHING FACTORY (Z = -81.0)
@@ -5366,19 +5963,28 @@
 
                 let canMove = true;
                 if (currentZone && currentZone.type === 'built-in-master') {
-                    // A. East downhill road & lower factory retaining walls (x > 16.0, z < -64.0)
+                    // A. East downhill road, stone-wall stairway & lower factory yard (x > 16.0, z < -64.0)
                     const currInEastCutout = player.position.x > 16.0 && player.position.z < -64.0;
                     const nextInEastCutout = nextX > 16.0 && nextZ < -64.0;
+                    const inStairGate = (zv) => zv >= -78.9 && zv <= -77.0;
 
                     if (!currInEastCutout && nextInEastCutout) {
                         const enteringTopOfRoad = player.position.z >= -64.5 && nextX >= 16.2 && nextX <= 22.2;
-                        if (!enteringTopOfRoad) canMove = false;
+                        const enteringStairGate = inStairGate(nextZ) && nextX <= 17.9;
+                        if (!enteringTopOfRoad && !enteringStairGate) canMove = false;
                     } else if (currInEastCutout && !nextInEastCutout) {
                         const exitingTopOfRoad = nextZ >= -64.5 && nextX >= 16.2 && nextX <= 22.2;
-                        if (!exitingTopOfRoad) canMove = false;
+                        const exitingStairGate = inStairGate(nextZ) && player.position.x <= 17.95;
+                        if (!exitingTopOfRoad && !exitingStairGate) canMove = false;
                     } else if (currInEastCutout && nextInEastCutout) {
-                        if (nextZ > -88.0 && (nextX < 16.25 || nextX > 22.15)) canMove = false;
-                        if (nextZ <= -88.0 && (nextX < 16.25 || nextX > 44.0 || nextZ < -104.0)) canMove = false;
+                        if (nextZ > -88.0 && nextX < 16.25 && !inStairGate(nextZ)) canMove = false;
+                        if (nextZ > -88.0 && nextX > 22.15) canMove = false;
+                        // Stair podium is only reachable by climbing from the south (1.9 m drop on the road side)
+                        if (nextX < 17.95 && ((player.position.z > -76.8 && nextZ <= -76.8) || (player.position.z <= -76.8 && nextZ > -76.8))) canMove = false;
+                        if (nextZ <= -88.0 && (nextX < 16.25 || nextX > 56.0 || nextZ < -112.0)) canMove = false;
+                        // Big grey wall block and 3-floor factory body
+                        if (nextZ <= -88.0 && nextZ > -89.3 && nextX > 24.0) canMove = false;
+                        if (nextX > 21.0 && nextX < 45.0 && nextZ < -93.3 && nextZ > -105.4) canMove = false;
                     }
 
                     // B. Relocated HR downhill road and lowered rear-yard cutout
@@ -5438,8 +6044,10 @@
                 const zPos = player.position.z;
                 const xPos = player.position.x;
                 const labelEl = document.getElementById('current-zone-label');
-                if (xPos > 16.0 && zPos < -64.0) {
-                    labelEl.textContent = '6. East Downhill Road & 3-Floor Factory';
+                if (xPos > 16.0 && zPos < -88.0) {
+                    labelEl.textContent = '7. Lower Factory Yard, Sheds & Sack Trailer (Photo 7)';
+                } else if (xPos > 16.0 && zPos < -64.0) {
+                    labelEl.textContent = '6. East Downhill Road beside Main Office (Photo 6)';
                 } else if (xPos < -15.5 && zPos > -24.5 && zPos < -8.1) {
                     labelEl.textContent = '3. HR Left Downhill Covered Hut Road';
                 } else if (zPos > -4.0) {
@@ -5451,7 +6059,7 @@
                 } else if (zPos > -63.0) {
                     labelEl.textContent = '5. Galpaditenne Waterfall Pond (Photo 4)';
                 } else {
-                    labelEl.textContent = '7. 3-Floor Main Head Office & Lobby (Photo 5)';
+                    labelEl.textContent = '8. 3-Floor Main Head Office & Lobby (Photo 5)';
                 }
 
                 const distToFp = player.position.distanceTo(fingerprintTerminal.position);
